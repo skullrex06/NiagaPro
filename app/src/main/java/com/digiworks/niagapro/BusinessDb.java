@@ -1,0 +1,15 @@
+package com.digiworks.niagapro;
+
+import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+
+public class BusinessDb extends SQLiteOpenHelper {
+    public BusinessDb(Context context) { super(context, "niagapro.db", null, 1); }
+    @Override public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE sales(id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL NOT NULL, method TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL NOT NULL, category TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price REAL NOT NULL DEFAULT 0, cost REAL NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0)");
+    }
+    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
+}
