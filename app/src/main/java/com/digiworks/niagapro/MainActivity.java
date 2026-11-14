@@ -160,7 +160,7 @@ public class MainActivity extends Activity {
             pageTile("RM","Hutang pelanggan","Urus baki pelanggan dan bayaran",()->showDebts());
         } else if("stock".equals(currentPage)){content.removeAllViews();section("Produk & inventori","Urus katalog produk dan baki stok.");
             pageTile("▦","Senarai produk","Tambah, edit atau padam produk",()->showProducts());
-            pageTile("＋","Tambah produk","Daftar produk baharu",()->productForm(-1));
+            pageTile("＋","Tambah produk","Daftar produk baharu",()->productForm(-1,"",0,0,0));
         } else if("reports".equals(currentPage)){content.removeAllViews();section("Laporan","Semak prestasi kewangan perniagaan.");
             pageTile("▤","Untung & rugi","Jualan, kos, belanja dan untung bersih",()->showReport());
             pageTile("↔","Sejarah transaksi","Semak rekod jualan dan belanja",()->showHistory());
