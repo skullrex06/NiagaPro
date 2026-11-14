@@ -394,6 +394,67 @@ public class MainActivity extends Activity {
         Cursor c=db.rawQuery(sql,null);double v=0;if(c.moveToFirst())v=c.getDouble(0);c.close();return v;
     }
 
+
+    private void loadActiveProfile() {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT name FROM business_profiles WHERE id=?",new String[]{String.valueOf(activeBusinessId)});
+        if(c.moveToFirst())activeBusinessName=c.getString(0);
+        else {activeBusinessId=1;activeBusinessName="Perniagaan Saya";profilePrefs.edit().putLong("active_id",1).apply();}
+        c.close();
+    }
+    private void showProfiles() {
+        java.util.ArrayList<Long> ids=new java.util.ArrayList<>();
+        java.util.ArrayList<String> names=new java.util.ArrayList<>();
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,business_type FROM business_profiles ORDER BY id",null);
+        while(c.moveToNext()){ids.add(c.getLong(0));names.add(c.getString(1)+" • "+c.getString(2)+(c.getLong(0)==activeBusinessId?" ✓":""));}
+        c.close();
+        new AlertDialog.Builder(this).setTitle("Profil perniagaan")
+          .setItems(names.toArray(new String[0]),(d,w)->{activeBusinessId=ids.get(w);profilePrefs.edit().putLong("active_id",activeBusinessId).apply();loadActiveProfile();refresh();})
+          .setPositiveButton("+ Tambah profil",(d,w)->addBusinessProfile())
+          .setNeutralButton("Urus profil",(d,w)->manageBusinessProfile()).setNegativeButton("Tutup",null).show();
+    }
+    private void addBusinessProfile() {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT COUNT(*) FROM business_profiles",null);c.moveToFirst();int total=c.getInt(0);c.close();
+        if(total>=5){Toast.makeText(this,"Maksimum 5 profil peranti ini.",Toast.LENGTH_LONG).show();return;}
+        LinearLayout box=new LinearLayout(this);box.setPadding(dp(20),dp(8),dp(20),0);box.setOrientation(LinearLayout.VERTICAL);
+        EditText name=input("Nama perniagaan",android.text.InputType.TYPE_CLASS_TEXT);
+        Spinner type=new Spinner(this);String[] types={"Retail / Shop","Food & Beverage","Online Business","Service Business","Mixed Business"};
+        ArrayAdapter<String> ad=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,types);ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);type.setAdapter(ad);
+        box.addView(name);box.addView(type);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Tambah profil perniagaan").setView(box).setNegativeButton("Batal",null).setPositiveButton("Simpan",null).create();
+        dlg.setOnShowListener(v->dlg.getButton(-1).setOnClickListener(btn->{
+            String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Masukkan nama");return;}
+            ContentValues cv=new ContentValues();cv.put("name",n);cv.put("business_type",type.getSelectedItem().toString());
+            long id=helper.getWritableDatabase().insert("business_profiles",null,cv);
+            if(id<0){Toast.makeText(this,"Gagal tambah profil.",Toast.LENGTH_SHORT).show();return;}
+            dlg.dismiss();activeBusinessId=id;profilePrefs.edit().putLong("active_id",id).apply();loadActiveProfile();refresh();
+        }));dlg.show();
+    }
+    private void manageBusinessProfile() {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,business_type FROM business_profiles WHERE id=?",new String[]{String.valueOf(activeBusinessId)});
+        if(!c.moveToFirst()){c.close();return;}long id=c.getLong(0);String oldName=c.getString(1),oldType=c.getString(2);c.close();
+        LinearLayout box=new LinearLayout(this);box.setPadding(dp(20),dp(8),dp(20),0);box.setOrientation(LinearLayout.VERTICAL);
+        EditText name=input("Nama perniagaan",android.text.InputType.TYPE_CLASS_TEXT);name.setText(oldName);
+        Spinner type=new Spinner(this);String[] types={"Retail / Shop","Food & Beverage","Online Business","Service Business","Mixed Business"};
+        ArrayAdapter<String> ad=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,types);ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);type.setAdapter(ad);
+        for(int i=0;i<types.length;i++)if(types[i].equals(oldType))type.setSelection(i);
+        box.addView(name);box.addView(type);
+        new AlertDialog.Builder(this).setTitle("Kemaskini profil").setView(box).setNegativeButton("Batal",null)
+          .setNeutralButton("Padam profil",(d,w)->confirmDeleteProfile(id,oldName))
+          .setPositiveButton("Simpan",(d,w)->{String n=name.getText().toString().trim();if(n.isEmpty()){Toast.makeText(this,"Nama tidak boleh kosong.",Toast.LENGTH_SHORT).show();return;}ContentValues cv=new ContentValues();cv.put("name",n);cv.put("business_type",type.getSelectedItem().toString());helper.getWritableDatabase().update("business_profiles",cv,"id=?",new String[]{String.valueOf(id)});loadActiveProfile();refresh();}).show();
+    }
+    private void confirmDeleteProfile(long id,String name) {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT COUNT(*) FROM business_profiles",null);c.moveToFirst();int total=c.getInt(0);c.close();
+        if(total<=1){Toast.makeText(this,"Sekurang-kurangnya satu profil mesti dikekalkan.",Toast.LENGTH_LONG).show();return;}
+        new AlertDialog.Builder(this).setTitle("Padam "+name+"?").setMessage("Semua jualan, belanja, produk dan hutang profil ini akan dipadam secara kekal.")
+          .setNegativeButton("Batal",null).setPositiveButton("Padam",(d,w)->{
+            SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+            try{db.delete("debt_payments","business_id=?",new String[]{String.valueOf(id)});db.delete("debts","business_id=?",new String[]{String.valueOf(id)});db.delete("sales","business_id=?",new String[]{String.valueOf(id)});db.delete("expenses","business_id=?",new String[]{String.valueOf(id)});db.delete("products","business_id=?",new String[]{String.valueOf(id)});db.delete("business_profiles","id=?",new String[]{String.valueOf(id)});db.setTransactionSuccessful();}
+            finally{db.endTransaction();}
+            if(activeBusinessId==id){Cursor next=db.rawQuery("SELECT id FROM business_profiles ORDER BY id LIMIT 1",null);if(next.moveToFirst())activeBusinessId=next.getLong(0);next.close();profilePrefs.edit().putLong("active_id",activeBusinessId).apply();}
+            loadActiveProfile();refresh();
+          }).show();
+    }
+
     private static final int REQ_BACKUP=7101, REQ_RESTORE=7102, REQ_CSV=7103, REQ_PDF=7104;
     private void showDataTools() {
         String[] options={"Backup semua data (.db)","Restore backup (.db)","Eksport Excel-compatible (.csv)","Eksport laporan PDF"};
