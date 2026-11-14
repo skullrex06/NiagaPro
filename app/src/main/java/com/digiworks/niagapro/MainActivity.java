@@ -28,10 +28,10 @@ public class MainActivity extends Activity {
     private String currentPage="home";
     private TextView salesValue, expenseValue, profitValue, dateLabel;
     private final int navy = Color.rgb(37, 43, 69);
-    private final int blue = Color.rgb(102, 126, 234);
+    private final int blue = Color.rgb(242, 140, 40);
     private final int ink = Color.rgb(37, 43, 69);
     private final int muted = Color.rgb(123, 129, 152);
-    private final int page = Color.rgb(244, 243, 255);
+    private final int page = Color.rgb(255, 248, 240);
     private final NumberFormat money = NumberFormat.getCurrencyInstance(new Locale("ms", "MY"));
 
     @Override public void onCreate(Bundle state) {
@@ -97,8 +97,8 @@ public class MainActivity extends Activity {
         bottomNav=new LinearLayout(this);bottomNav.setOrientation(LinearLayout.HORIZONTAL);bottomNav.setPadding(dp(5),dp(8),dp(5),dp(8));bottomNav.setBackgroundResource(R.drawable.bg_bottom_navigation);
         String[][] tabs={{"⌂","Utama","home"},{"＋","Jualan","sales"},{"▦","Stok","stock"},{"▤","Laporan","reports"},{"☰","Lainnya","more"}};
         for(String[] tab:tabs){LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(Gravity.CENTER);
-            TextView glyph=text(tab[0],19,0xFF667EEA,true);glyph.setGravity(Gravity.CENTER);
-            TextView label=text(tab[1],10,0xFF667EEA,true);label.setGravity(Gravity.CENTER);
+            TextView glyph=text(tab[0],19,0xFFF28C28,true);glyph.setGravity(Gravity.CENTER);
+            TextView label=text(tab[1],10,0xFFF28C28,true);label.setGravity(Gravity.CENTER);
             item.addView(glyph);item.addView(label);
             item.setOnClickListener(v->{currentPage=tab[2];renderPage();});
             bottomNav.addView(item,new LinearLayout.LayoutParams(0,dp(52),1));
@@ -138,7 +138,7 @@ public class MainActivity extends Activity {
     }
     private void action(String icon, String title, String sub, int color, Runnable run) {
         LinearLayout row=card(); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView badge=text(icon,19,color,true); badge.setGravity(Gravity.CENTER); badge.setBackground(shape(0xFFEAE7FF,14));
+        TextView badge=text(icon,19,color,true); badge.setGravity(Gravity.CENTER); badge.setBackground(shape(0xFFFFF0DF,14));
         row.addView(badge,new LinearLayout.LayoutParams(dp(48),dp(48)));
         LinearLayout words=new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(13),0,0,0);
         words.addView(text(title,14,ink,true)); words.addView(text(sub,11,muted,false));
@@ -150,7 +150,7 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         section("Ringkasan perniagaan","Prestasi kewangan hari ini.");
         LinearLayout profile=card();profile.setOrientation(LinearLayout.HORIZONTAL);profile.setGravity(Gravity.CENTER_VERTICAL);
-        TextView ico=text("▣",22,0xFF8066D9,true);ico.setGravity(Gravity.CENTER);ico.setBackground(shape(0xFFEAE7FF,16));
+        TextView ico=text("▣",22,0xFFD9480F,true);ico.setGravity(Gravity.CENTER);ico.setBackground(shape(0xFFFFF0DF,16));
         profile.addView(ico,new LinearLayout.LayoutParams(dp(48),dp(48)));
         LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);words.setPadding(dp(13),0,0,0);
         words.addView(text("PROFIL PERNIAGAAN",10,muted,true));words.addView(text(activeBusinessName,15,ink,true));words.addView(text("Tekan untuk tukar profil",10,muted,false));
@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams pr=new LinearLayout.LayoutParams(-1,-2);pr.setMargins(0,dp(5),0,dp(12));content.addView(profile,pr);profile.setOnClickListener(v->showProfiles());
         LinearLayout metrics=new LinearLayout(this);metrics.setOrientation(LinearLayout.HORIZONTAL);content.addView(metrics);
         salesValue=metricIn(metrics,"JUALAN HARI INI",blue);expenseValue=metricIn(metrics,"BELANJA HARI INI",0xFFFFA64D);
-        LinearLayout profit=card();profit.setBackground(gradient(0xFF667EEA,0xFF9275E8,20));
+        LinearLayout profit=card();profit.setBackground(gradient(0xFFF28C28,0xFFE85D04,20));
         profit.addView(text("ANGGARAN UNTUNG BERSIH HARI INI",10,0xFFFFFFFF,true));
         profitValue=text("RM 0.00",27,Color.WHITE,true);profitValue.setPadding(0,dp(7),0,0);profit.addView(profitValue);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(dp(4),dp(12),dp(4),dp(18));content.addView(profit,pp);
@@ -170,7 +170,7 @@ public class MainActivity extends Activity {
     }
     private void pageTile(String icon,String title,String sub,Runnable action) {
         LinearLayout tile=card();tile.setOrientation(LinearLayout.HORIZONTAL);tile.setGravity(Gravity.CENTER_VERTICAL);
-        TextView badge=text(icon,21,0xFF667EEA,true);badge.setGravity(Gravity.CENTER);badge.setBackground(shape(0xFFEAE7FF,14));
+        TextView badge=text(icon,21,0xFFF28C28,true);badge.setGravity(Gravity.CENTER);badge.setBackground(shape(0xFFFFF0DF,14));
         tile.addView(badge,new LinearLayout.LayoutParams(dp(46),dp(46)));
         LinearLayout labels=new LinearLayout(this);labels.setOrientation(LinearLayout.VERTICAL);labels.setPadding(dp(13),0,0,0);
         labels.addView(text(title,14,ink,true));labels.addView(text(sub,11,muted,false));
@@ -199,8 +199,8 @@ public class MainActivity extends Activity {
         }
         if(bottomNav!=null){String[] keys={"home","sales","stock","reports","more"};for(int i=0;i<bottomNav.getChildCount();i++){
             LinearLayout item=(LinearLayout)bottomNav.getChildAt(i);boolean selected=keys[i].equals(currentPage);
-            item.setBackground(selected?shape(0xFFEAE7FF,14):null);
-            for(int j=0;j<item.getChildCount();j++)((TextView)item.getChildAt(j)).setTextColor(selected?0xFF5269C8:0xFF7B8198);
+            item.setBackground(selected?shape(0xFFFFF0DF,14):null);
+            for(int j=0;j<item.getChildCount();j++)((TextView)item.getChildAt(j)).setTextColor(selected?0xFFB94D00:0xFF88796B);
         }}
     }
     private void addWeeklyStatisticsChart() {
@@ -232,7 +232,7 @@ public class MainActivity extends Activity {
                 while(c.moveToNext()){Integer ix=indexes.get(c.getString(0));if(ix!=null){if("S".equals(c.getString(2)))sales[ix]=c.getDouble(1);else expenses[ix]=c.getDouble(1);}}
                 c.close();
                 for(int i=0;i<7;i++)max=Math.max(max,Math.max(sales[i],expenses[i]));
-                paint.setColor(0xFFE9E7F2);paint.setStrokeWidth(dp(1));
+                paint.setColor(0xFFF1E2D4);paint.setStrokeWidth(dp(1));
                 for(int k=0;k<4;k++){float y=top+(bottom-top)*k/3f;canvas.drawLine(left,y,right,y,paint);}
                 float group=(right-left)/7f,bar=Math.min(dp(11),group*.28f);
                 paint.setTextSize(dp(9));paint.setTextAlign(android.graphics.Paint.Align.CENTER);
@@ -241,7 +241,7 @@ public class MainActivity extends Activity {
                     float sh=(float)(sales[i]/max)*(bottom-top),eh=(float)(expenses[i]/max)*(bottom-top);
                     paint.setColor(0xFF526FE5);canvas.drawRoundRect(cx-bar-1,bottom-sh,cx-1,bottom,dp(3),dp(3),paint);
                     paint.setColor(0xFFF29A48);canvas.drawRoundRect(cx+1,bottom-eh,cx+bar+1,bottom,dp(3),dp(3),paint);
-                    paint.setColor(0xFF7B8198);
+                    paint.setColor(0xFF88796B);
                     cal.setTime(new Date());cal.add(java.util.Calendar.DAY_OF_YEAR,i-6);
                     String day=new java.text.SimpleDateFormat("EEE",new Locale("ms","MY")).format(cal.getTime());
                     canvas.drawText(day,cx,bottom+dp(16),paint);
