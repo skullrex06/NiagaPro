@@ -40,9 +40,19 @@ public class MainActivity extends Activity {
         profilePrefs=getSharedPreferences("niagapro_profile",MODE_PRIVATE);
         activeBusinessId=profilePrefs.getLong("active_id",1);
         loadActiveProfile();
-        getWindow().setStatusBarColor(navy);
-        getWindow().setNavigationBarColor(Color.rgb(10,18,55));
-        getWindow().getDecorView().setSystemUiVisibility(0);
+        // Android 15 edge-to-edge: keep app content clear of status and navigation bars.
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            getWindow().setNavigationBarContrastEnforced(false);
+            getWindow().setStatusBarContrastEnforced(false);
+        }
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         buildUi();
         refresh();
     }
@@ -94,6 +104,23 @@ public class MainActivity extends Activity {
             bottomNav.addView(item,new LinearLayout.LayoutParams(0,dp(52),1));
         }
         root.addView(bottomNav);setContentView(root);
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset, bottomInset;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets bars = insets.getInsets(
+                        android.view.WindowInsets.Type.statusBars() |
+                        android.view.WindowInsets.Type.navigationBars() |
+                        android.view.WindowInsets.Type.displayCutout());
+                topInset = bars.top;
+                bottomInset = bars.bottom;
+            } else {
+                topInset = insets.getSystemWindowInsetTop();
+                bottomInset = insets.getSystemWindowInsetBottom();
+            }
+            view.setPadding(0, topInset, 0, bottomInset);
+            return insets;
+        });
+        root.requestApplyInsets();
     }
     private LinearLayout card() {
         LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackgroundResource(R.drawable.bg_card_gradient);
