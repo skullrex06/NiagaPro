@@ -120,6 +120,7 @@ public class MainActivity extends Activity {
         action("▦","Produk & inventori","Tambah, edit, padam dan kemas kini stok",blue,()->showProducts());
         action("↔","Sejarah transaksi","Semak rekod jualan dan belanja",0xFF7958D8,()->showHistory());
         action("▤","Laporan ringkas","Ringkasan jualan dan perbelanjaan",0xFF269A83,()->showReport());
+        action("RM","Hutang pelanggan & pembekal","Rekod hutang, bayaran dan baki tertunggak",0xFFB45ACB,()->showDebts());
         TextView foot=text("NiagaPro • Data disimpan dalam peranti ini",11,muted,false); foot.setGravity(Gravity.CENTER); foot.setPadding(0,dp(18),0,dp(8)); content.addView(foot);
     }
     private TextView metricIn(LinearLayout parent,String title,int color) {
@@ -287,6 +288,73 @@ public class MainActivity extends Activity {
             }catch(Exception e){Toast.makeText(this,"Semak nama, harga, kos dan kuantiti.",Toast.LENGTH_LONG).show();}
         }));
         dlg.show();
+    }
+    private void showDebts() {
+        SQLiteDatabase db=helper.getReadableDatabase();
+        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PELANGGAN'");
+        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
+        String summary="Pelanggan berhutang kepada anda: "+money.format(receivable)+"\nAnda berhutang kepada pembekal: "+money.format(payable);
+        new AlertDialog.Builder(this).setTitle("Hutang & bayaran").setMessage(summary)
+            .setPositiveButton("Lihat rekod",(d,w)->listDebts())
+            .setNeutralButton("+ Rekod hutang",(d,w)->addDebt())
+            .setNegativeButton("Tutup",null).show();
+    }
+    private void addDebt() {
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(6),dp(20),0);
+        Spinner type=new Spinner(this);String[] types={"PELANGGAN","PEMBEKAL"};
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,types);adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);type.setAdapter(adapter);
+        EditText name=input("Nama pelanggan / pembekal",android.text.InputType.TYPE_CLASS_TEXT);
+        EditText desc=input("Butiran / invois (pilihan)",android.text.InputType.TYPE_CLASS_TEXT);
+        EditText amount=input("Jumlah hutang (RM)",8194);
+        box.addView(text("Jenis rekod",12,muted,true));box.addView(type);box.addView(name);box.addView(desc);box.addView(amount);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Rekod hutang baharu").setView(box).setNegativeButton("Batal",null).setPositiveButton("Simpan",null).create();
+        dlg.setOnShowListener(v->dlg.getButton(-1).setOnClickListener(btn->{
+            try{
+                String n=name.getText().toString().trim();java.math.BigDecimal a=new java.math.BigDecimal(amount.getText().toString().trim().replace(",","." ));
+                if(n.isEmpty()||a.signum()<=0||a.scale()>2)throw new Exception();
+                ContentValues cv=new ContentValues();cv.put("party_type",type.getSelectedItem().toString());cv.put("party_name",n);cv.put("description",desc.getText().toString().trim());cv.put("original_amount",a.doubleValue());cv.put("balance",a.doubleValue());
+                if(helper.getWritableDatabase().insert("debts",null,cv)<0)throw new Exception();
+                dlg.dismiss();listDebts();
+            }catch(Exception e){Toast.makeText(this,"Semak nama dan jumlah hutang.",Toast.LENGTH_LONG).show();}
+        }));dlg.show();
+    }
+    private void listDebts() {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,party_type,party_name,description,original_amount,balance FROM debts WHERE balance>0 ORDER BY created_at DESC",null);
+        LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
+        while(c.moveToNext()){
+            long id=c.getLong(0);String type=c.getString(1),name=c.getString(2),desc=c.getString(3);double original=c.getDouble(4),balance=c.getDouble(5);
+            LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(12),dp(10),dp(12),dp(10));row.setBackground(shape(0xFFF2F5FB,12));
+            row.addView(text(name+" • "+type,14,ink,true));row.addView(text("Asal "+money.format(original)+" | Baki "+money.format(balance),12,blue,true));
+            if(desc!=null&&!desc.isEmpty())row.addView(text(desc,11,muted,false));
+            row.setOnClickListener(v->recordDebtPayment(id,name,balance));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);list.addView(row,lp);
+        }c.close();
+        if(list.getChildCount()==0)list.addView(text("Tiada hutang tertunggak.",13,muted,false));
+        ScrollView sc=new ScrollView(this);sc.addView(list);
+        new AlertDialog.Builder(this).setTitle("Rekod tertunggak • Tekan untuk bayar").setView(sc)
+            .setPositiveButton("+ Hutang baharu",(d,w)->addDebt()).setNegativeButton("Tutup",null).show();
+    }
+    private void recordDebtPayment(long id,String name,double balance) {
+        EditText amount=input("Jumlah bayaran (maksimum "+money.format(balance)+")",8194);
+        EditText note=input("Catatan bayaran (pilihan)",android.text.InputType.TYPE_CLASS_TEXT);
+        LinearLayout box=new LinearLayout(this);box.setPadding(dp(20),dp(5),dp(20),0);box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(text("Bayaran untuk "+name,13,ink,true));box.addView(amount);box.addView(note);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Rekod bayaran").setView(box).setNegativeButton("Batal",null).setPositiveButton("Simpan bayaran",null).create();
+        dlg.setOnShowListener(v->dlg.getButton(-1).setOnClickListener(btn->{
+            try{
+                java.math.BigDecimal a=new java.math.BigDecimal(amount.getText().toString().trim().replace(",","." ));
+                if(a.signum()<=0||a.scale()>2||a.doubleValue()>balance+0.000001)throw new Exception();
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    ContentValues pay=new ContentValues();pay.put("debt_id",id);pay.put("amount",a.doubleValue());pay.put("note",note.getText().toString().trim());
+                    if(db.insert("debt_payments",null,pay)<0)throw new Exception();
+                    ContentValues update=new ContentValues();update.put("balance",Math.max(0,balance-a.doubleValue()));
+                    if(db.update("debts",update,"id=?",new String[]{String.valueOf(id)})!=1)throw new Exception();
+                    db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                dlg.dismiss();listDebts();Toast.makeText(this,"Bayaran berjaya direkodkan.",Toast.LENGTH_SHORT).show();
+            }catch(Exception e){Toast.makeText(this,"Jumlah bayaran tidak sah atau melebihi baki.",Toast.LENGTH_LONG).show();}
+        }));dlg.show();
     }
     private double sumTodayCost(SQLiteDatabase db) {
         Cursor c=db.rawQuery("SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE date(created_at)=date('now','localtime')",null);
