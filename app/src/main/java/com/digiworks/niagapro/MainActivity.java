@@ -26,11 +26,11 @@ public class MainActivity extends Activity {
     private android.content.SharedPreferences profilePrefs;
     private LinearLayout root, content;
     private TextView salesValue, expenseValue, profitValue, dateLabel;
-    private final int navy = Color.rgb(15, 27, 52);
-    private final int blue = Color.rgb(55, 105, 245);
-    private final int ink = Color.rgb(31, 43, 68);
-    private final int muted = Color.rgb(117, 129, 151);
-    private final int page = Color.rgb(245, 247, 252);
+    private final int navy = Color.rgb(8, 16, 48);
+    private final int blue = Color.rgb(91, 115, 255);
+    private final int ink = Color.rgb(245, 247, 255);
+    private final int muted = Color.rgb(190, 202, 232);
+    private final int page = Color.rgb(8, 16, 48);
     private final NumberFormat money = NumberFormat.getCurrencyInstance(new Locale("ms", "MY"));
 
     @Override public void onCreate(Bundle state) {
@@ -62,9 +62,9 @@ public class MainActivity extends Activity {
         return t;
     }
     private void buildUi() {
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(page);
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackground(gradient(Color.rgb(7,15,43),Color.rgb(48,24,105),0));
         LinearLayout header = new LinearLayout(this); header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(22),dp(18),dp(22),dp(22)); header.setBackground(gradient(navy,Color.rgb(37,65,119),24));
+        header.setPadding(dp(22),dp(18),dp(22),dp(22)); header.setBackground(gradient(navy,Color.rgb(40,35,130),24));
         LinearLayout brand = new LinearLayout(this); brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView logo = text("N",22,Color.WHITE,true); logo.setGravity(Gravity.CENTER); logo.setBackground(shape(0x334F8BFF,14));
         brand.addView(logo,new LinearLayout.LayoutParams(dp(42),dp(42)));
@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         TextView profileButton=text("▣ "+activeBusinessName+"  ▾",11,Color.WHITE,true);
         profileButton.setPadding(dp(10),dp(9),dp(10),dp(9));profileButton.setBackground(shape(0x334F8BFF,20));
         brand.addView(profileButton);profileButton.setOnClickListener(v->showProfiles());
-        TextView plan = text("FREE",10,Color.WHITE,true); plan.setPadding(dp(12),dp(7),dp(12),dp(7)); plan.setBackground(shape(0x334F8BFF,30)); brand.addView(plan);
+        TextView plan = text("FREE",10,Color.WHITE,true); plan.setPadding(dp(12),dp(7),dp(12),dp(7)); plan.setBackground(gradient(0xFF315FEA,0xFF8A35E8,30)); brand.addView(plan);
         header.addView(brand);
         dateLabel=text(new SimpleDateFormat("EEEE, d MMMM yyyy",new Locale("ms","MY")).format(new Date()),13,0xFFD5DDF0,false); dateLabel.setPadding(0,dp(22),0,0); header.addView(dateLabel);
         TextView welcome=text("Urus bisnes dengan lebih mudah.",20,Color.WHITE,true); welcome.setPadding(0,dp(4),0,0); header.addView(welcome);
@@ -86,7 +86,7 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
     private LinearLayout card() {
-        LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackground(shape(Color.WHITE,18));
+        LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackground(gradient(Color.rgb(25,43,91),Color.rgb(42,43,112),18));
         if(android.os.Build.VERSION.SDK_INT>=21) c.setElevation(dp(2));
         return c;
     }
@@ -101,7 +101,7 @@ public class MainActivity extends Activity {
     }
     private void action(String icon, String title, String sub, int color, Runnable run) {
         LinearLayout row=card(); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView badge=text(icon,19,color,true); badge.setGravity(Gravity.CENTER); badge.setBackground(shape(0xFFEFF3FF,14));
+        TextView badge=text(icon,19,color,true); badge.setGravity(Gravity.CENTER); badge.setBackground(shape(0x443D72FF,14));
         row.addView(badge,new LinearLayout.LayoutParams(dp(48),dp(48)));
         LinearLayout words=new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(13),0,0,0);
         words.addView(text(title,14,ink,true)); words.addView(text(sub,11,muted,false));
@@ -119,7 +119,7 @@ public class MainActivity extends Activity {
         expenseValue=metricIn(metrics,"BELANJA",0xFFE28A36);
         metrics.getChildAt(0).setOnClickListener(v->showHistory());
         metrics.getChildAt(1).setOnClickListener(v->showHistory());
-        LinearLayout profit=card(); profit.setBackground(gradient(0xFF315FEA,0xFF684CE6,18));
+        LinearLayout profit=card(); profit.setBackground(gradient(0xFF245FEA,0xFF8A35E8,18));
         TextView pt=text("UNTUNG BERSIH HARI INI",11,0xFFE3E9FF,true); profit.addView(pt);
         profitValue=text("RM 0.00",25,Color.WHITE,true); profitValue.setPadding(0,dp(8),0,0); profit.addView(profitValue);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2); pp.setMargins(dp(4),dp(5),dp(4),dp(8)); content.addView(profit,pp);
