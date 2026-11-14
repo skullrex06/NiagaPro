@@ -114,7 +114,7 @@ public class MainActivity extends Activity {
         profitValue=text("RM 0.00",25,Color.WHITE,true); profitValue.setPadding(0,dp(8),0,0); profit.addView(profitValue);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2); pp.setMargins(dp(4),dp(5),dp(4),dp(8)); content.addView(profit,pp);
         section("Urus niaga","Rekod aktiviti harian dengan pantas.");
-        action("+","Rekod jualan","Produk atau perkhidmatan",blue,()->addRecord(true));
+        action("+","Rekod jualan","Jual produk atau rekod perkhidmatan",blue,()->addSale());
         action("−","Rekod perbelanjaan","Catat kos operasi perniagaan",0xFFE28A36,()->addRecord(false));
         section("Pengurusan","Modul perniagaan.");
         action("▦","Produk & inventori","Tambah, edit, padam dan kemas kini stok",blue,()->showProducts());
@@ -135,6 +135,76 @@ public class MainActivity extends Activity {
     private double sumToday(SQLiteDatabase db,String table) {
         Cursor c=db.rawQuery("SELECT COALESCE(SUM(amount),0) FROM "+table+" WHERE date(created_at)=date('now','localtime')",null);
         double v=0; if(c.moveToFirst())v=c.getDouble(0); c.close(); return v;
+    }
+    private void addSale() {
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,stock FROM products ORDER BY name",null);
+        java.util.ArrayList<Long> ids=new java.util.ArrayList<>();
+        java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+        java.util.ArrayList<Double> prices=new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> stocks=new java.util.ArrayList<>();
+        ids.add(-1L); labels.add("Perkhidmatan / item lain"); prices.add(0d); stocks.add(-1);
+        while(c.moveToNext()){ids.add(c.getLong(0));labels.add(c.getString(1)+" (stok "+c.getInt(3)+")");prices.add(c.getDouble(2));stocks.add(c.getInt(3));}
+        c.close();
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(8),dp(20),0);
+        Spinner item=new Spinner(this);ArrayAdapter<String> items=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,labels);items.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);item.setAdapter(items);
+        EditText serviceName=input("Nama perkhidmatan / item lain",android.text.InputType.TYPE_CLASS_TEXT);
+        EditText qty=input("Kuantiti",2);qty.setText("1");
+        EditText price=input("Harga seunit (RM)",8194);
+        EditText note=input("Catatan (pilihan)",android.text.InputType.TYPE_CLASS_TEXT);
+        Spinner payment=new Spinner(this);String[] methods={"Tunai","DuitNow / QR","Kad","Pindahan bank","Kredit / Hutang"};
+        ArrayAdapter<String> pays=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,methods);pays.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);payment.setAdapter(pays);
+        TextView total=text("Jumlah: RM 0.00",16,blue,true);
+        box.addView(text("Produk atau jenis jualan",12,muted,true));box.addView(item);box.addView(serviceName);
+        box.addView(text("Kuantiti",12,muted,true));box.addView(qty);
+        box.addView(text("Harga seunit (RM)",12,muted,true));box.addView(price);
+        box.addView(text("Kaedah pembayaran",12,muted,true));box.addView(payment);box.addView(note);box.addView(total);
+        item.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(android.widget.AdapterView<?> p){}
+            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){
+                boolean service=ids.get(pos)==-1;serviceName.setVisibility(service?View.VISIBLE:View.GONE);
+                price.setText(prices.get(pos)>0?String.valueOf(prices.get(pos)):"");
+                total.setText("Jumlah: "+money.format(0));
+            }
+        });
+        TextWatcherCalc watcher=new TextWatcherCalc(qty,price,total);
+        qty.addTextChangedListener(watcher);price.addTextChangedListener(watcher);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Rekod jualan").setView(box).setNegativeButton("Batal",null).setPositiveButton("Simpan jualan",null).create();
+        dlg.setOnShowListener(x->dlg.getButton(-1).setOnClickListener(v->{
+            try{
+                int pos=item.getSelectedItemPosition();long productId=ids.get(pos);
+                int q=Integer.parseInt(qty.getText().toString().trim());
+                java.math.BigDecimal unit=new java.math.BigDecimal(price.getText().toString().trim().replace(",",".")); 
+                if(q<=0||unit.signum()<=0||unit.scale()>2)throw new Exception();
+                String itemName=productId==-1?serviceName.getText().toString().trim():labels.get(pos).replaceAll(" \\(stok.*","");
+                if(itemName.isEmpty())throw new Exception();
+                java.math.BigDecimal totalAmount=unit.multiply(new java.math.BigDecimal(q)).setScale(2,java.math.RoundingMode.HALF_UP);
+                SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
+                try{
+                    if(productId!=-1){
+                        ContentValues stockUpdate=new ContentValues();stockUpdate.put("stock",stocks.get(pos)-q);
+                        int changed=db.update("products",stockUpdate,"id=? AND stock>=?",new String[]{String.valueOf(productId),String.valueOf(q)});
+                        if(changed!=1)throw new IllegalStateException("Stok tidak mencukupi.");
+                    }
+                    ContentValues sale=new ContentValues();sale.put("amount",totalAmount.doubleValue());sale.put("method",payment.getSelectedItem().toString());
+                    sale.put("note",itemName+" x"+q+(note.getText().length()>0?" • "+note.getText().toString().trim():""));
+                    if(db.insert("sales",null,sale)==-1)throw new IllegalStateException("Gagal simpan jualan.");
+                    db.setTransactionSuccessful();
+                }finally{db.endTransaction();}
+                dlg.dismiss();refresh();Toast.makeText(this,"Jualan berjaya direkodkan.",Toast.LENGTH_SHORT).show();
+            }catch(IllegalStateException e){Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}
+             catch(Exception e){Toast.makeText(this,"Semak item, kuantiti dan harga jual.",Toast.LENGTH_LONG).show();}
+        }));
+        dlg.show();
+    }
+    private class TextWatcherCalc implements android.text.TextWatcher {
+        private EditText q,p; private TextView out;
+        TextWatcherCalc(EditText q,EditText p,TextView out){this.q=q;this.p=p;this.out=out;}
+        public void beforeTextChanged(CharSequence s,int st,int count,int after){}
+        public void onTextChanged(CharSequence s,int st,int before,int count){
+            try{java.math.BigDecimal a=new java.math.BigDecimal(q.getText().toString());java.math.BigDecimal b=new java.math.BigDecimal(p.getText().toString().replace(",","."));out.setText("Jumlah: "+money.format(a.multiply(b).doubleValue()));}
+            catch(Exception e){out.setText("Jumlah: RM 0.00");}
+        }
+        public void afterTextChanged(android.text.Editable e){}
     }
     private void addRecord(boolean sale) {
         EditText amount=new EditText(this); amount.setSingleLine(true); amount.setHint("Contoh: 25.50"); amount.setInputType(8194);
