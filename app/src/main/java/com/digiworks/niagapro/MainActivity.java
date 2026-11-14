@@ -121,6 +121,7 @@ public class MainActivity extends Activity {
         action("↔","Sejarah transaksi","Semak rekod jualan dan belanja",0xFF7958D8,()->showHistory());
         action("▤","Laporan ringkas","Ringkasan jualan dan perbelanjaan",0xFF269A83,()->showReport());
         action("RM","Hutang pelanggan & pembekal","Rekod hutang, bayaran dan baki tertunggak",0xFFB45ACB,()->showDebts());
+        action("⇩","Backup & eksport","Simpan data, pulihkan backup, eksport CSV dan PDF",0xFF269A83,()->showDataTools());
         TextView foot=text("NiagaPro • Data disimpan dalam peranti ini",11,muted,false); foot.setGravity(Gravity.CENTER); foot.setPadding(0,dp(18),0,dp(8)); content.addView(foot);
     }
     private TextView metricIn(LinearLayout parent,String title,int color) {
@@ -382,5 +383,102 @@ public class MainActivity extends Activity {
     private double querySum(SQLiteDatabase db,String sql) {
         Cursor c=db.rawQuery(sql,null);double v=0;if(c.moveToFirst())v=c.getDouble(0);c.close();return v;
     }
+
+    private static final int REQ_BACKUP=7101, REQ_RESTORE=7102, REQ_CSV=7103, REQ_PDF=7104;
+    private void showDataTools() {
+        String[] options={"Backup semua data (.db)","Restore backup (.db)","Eksport Excel-compatible (.csv)","Eksport laporan PDF"};
+        new AlertDialog.Builder(this).setTitle("Backup & eksport").setItems(options,(d,w)->{
+            if(w==0) createDocument(REQ_BACKUP,"application/octet-stream","niagapro-backup.db");
+            else if(w==1) openDocument(REQ_RESTORE);
+            else if(w==2) createDocument(REQ_CSV,"text/csv","niagapro-data.csv");
+            else createDocument(REQ_PDF,"application/pdf","niagapro-report.pdf");
+        }).setNegativeButton("Tutup",null).show();
+    }
+    private void createDocument(int request,String mime,String name) {
+        android.content.Intent i=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);i.setType(mime);
+        i.putExtra(android.content.Intent.EXTRA_TITLE,name);startActivityForResult(i,request);
+    }
+    private void openDocument(int request) {
+        android.content.Intent i=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,request);
+    }
+    @Override protected void onActivityResult(int request,int result,android.content.Intent data) {
+        super.onActivityResult(request,result,data);
+        if(result!=RESULT_OK||data==null||data.getData()==null)return;
+        android.net.Uri uri=data.getData();
+        try {
+            if(request==REQ_BACKUP) {
+                helper.getReadableDatabase().execSQL("PRAGMA wal_checkpoint(FULL)");
+                helper.close();
+                copyStream(new java.io.FileInputStream(getDatabasePath("niagapro.db")),getContentResolver().openOutputStream(uri));
+                helper=new BusinessDb(this);
+                Toast.makeText(this,"Backup berjaya disimpan.",Toast.LENGTH_LONG).show();
+            } else if(request==REQ_RESTORE) {
+                java.io.File temp=new java.io.File(getCacheDir(),"restore-niagapro.db");
+                copyStream(getContentResolver().openInputStream(uri),new java.io.FileOutputStream(temp));
+                android.database.sqlite.SQLiteDatabase check=android.database.sqlite.SQLiteDatabase.openDatabase(temp.getAbsolutePath(),null,android.database.sqlite.SQLiteDatabase.OPEN_READONLY);
+                Cursor verify=check.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('sales','expenses','products','debts','debt_payments')",null);
+                int found=verify.getCount();verify.close();check.close();
+                if(found<5)throw new Exception("Fail backup tidak sah atau versi tidak serasi.");
+                helper.close();
+                java.io.File target=getDatabasePath("niagapro.db");
+                java.io.File parent=target.getParentFile();if(parent!=null)parent.mkdirs();
+                if(!temp.renameTo(target)){copyStream(new java.io.FileInputStream(temp),new java.io.FileOutputStream(target));temp.delete();}
+                helper=new BusinessDb(this);refresh();
+                Toast.makeText(this,"Data berjaya dipulihkan.",Toast.LENGTH_LONG).show();
+            } else if(request==REQ_CSV) {
+                writeCsv(uri);Toast.makeText(this,"Fail CSV berjaya dieksport.",Toast.LENGTH_LONG).show();
+            } else if(request==REQ_PDF) {
+                writePdf(uri);Toast.makeText(this,"Laporan PDF berjaya dieksport.",Toast.LENGTH_LONG).show();
+            }
+        } catch(Exception e) {
+            try{if(helper==null)helper=new BusinessDb(this);}catch(Exception ignored){}
+            Toast.makeText(this,"Operasi gagal: "+e.getMessage(),Toast.LENGTH_LONG).show();
+        }
+    }
+    private void copyStream(java.io.InputStream in,java.io.OutputStream out)throws java.io.IOException {
+        if(in==null||out==null)throw new java.io.IOException("Tidak dapat membuka fail.");
+        try(java.io.InputStream src=in;java.io.OutputStream dst=out){byte[] b=new byte[8192];int n;while((n=src.read(b))!=-1)dst.write(b,0,n);dst.flush();}
+    }
+    private void writeCsv(android.net.Uri uri)throws Exception {
+        java.io.OutputStream out=getContentResolver().openOutputStream(uri);
+        if(out==null)throw new java.io.IOException("Tidak dapat membuka fail.");
+        java.io.OutputStreamWriter w=new java.io.OutputStreamWriter(out,java.nio.charset.Charset.forName("UTF-8"));
+        w.write("\uFEFFJENIS,ID,TARIKH,JUMLAH,KOS,KAEDAH/KATEGORI,CATATAN/NAMA,BAKI\\r\\n");
+        SQLiteDatabase db=helper.getReadableDatabase();
+        exportRows(w,db,"SELECT id,created_at,amount,cost_amount,method,note,'' FROM sales ORDER BY id","JUALAN");
+        exportRows(w,db,"SELECT id,created_at,amount,0,category,note,'' FROM expenses ORDER BY id","BELANJA");
+        exportRows(w,db,"SELECT id,created_at,original_amount,0,party_type,party_name,balance FROM debts ORDER BY id","HUTANG");
+        w.flush();w.close();
+    }
+    private void exportRows(java.io.Writer w,SQLiteDatabase db,String sql,String type)throws Exception {
+        Cursor c=db.rawQuery(sql,null);
+        try{while(c.moveToNext()){
+            StringBuilder line=new StringBuilder(type);
+            for(int i=0;i<7;i++){String value=c.isNull(i)?"":c.getString(i);line.append(',').append('"').append(value.replace("\"","\"\"")).append('"');}
+            w.write(line.append("\\r\\n").toString());
+        }}finally{c.close();}
+    }
+    private void writePdf(android.net.Uri uri)throws Exception {
+        SQLiteDatabase db=helper.getReadableDatabase();
+        double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales");
+        double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales");
+        double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses");
+        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PELANGGAN'");
+        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
+        android.graphics.pdf.PdfDocument pdf=new android.graphics.pdf.PdfDocument();
+        android.graphics.pdf.PdfDocument.PageInfo info=new android.graphics.pdf.PdfDocument.PageInfo.Builder(595,842,1).create();
+        android.graphics.pdf.PdfDocument.Page page=pdf.startPage(info);android.graphics.Canvas canvas=page.getCanvas();
+        android.graphics.Paint paint=new android.graphics.Paint(3);paint.setColor(navy);paint.setTextSize(25);paint.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+        canvas.drawText("NiagaPro",40,60,paint);paint.setTextSize(12);paint.setTypeface(Typeface.DEFAULT);
+        canvas.drawText("Laporan perniagaan • "+new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()),40,85,paint);
+        String[] rows={"Jualan: "+money.format(sales),"Kos produk terjual: "+money.format(cost),"Untung kasar: "+money.format(sales-cost),"Perbelanjaan: "+money.format(expenses),"UNTUNG BERSIH: "+money.format(sales-cost-expenses),"","Hutang pelanggan: "+money.format(receivable),"Hutang pembekal: "+money.format(payable)};
+        int y=140;for(String row:rows){paint.setTextSize(row.startsWith("UNTUNG")?17:14);paint.setTypeface(row.startsWith("UNTUNG")?Typeface.DEFAULT_BOLD:Typeface.DEFAULT);canvas.drawText(row,40,y,paint);y+=row.isEmpty()?18:32;}
+        paint.setTextSize(9);paint.setColor(Color.GRAY);canvas.drawText("Dijana oleh NiagaPro. Laporan berdasarkan rekod yang tersimpan pada peranti.",40,800,paint);
+        pdf.finishPage(page);java.io.OutputStream out=getContentResolver().openOutputStream(uri);if(out==null)throw new java.io.IOException("Tidak dapat membuka fail.");
+        try{pdf.writeTo(out);}finally{out.close();pdf.close();}
+    }
+
     @Override protected void onDestroy(){if(helper!=null)helper.close();super.onDestroy();}
 }
