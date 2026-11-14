@@ -1,0 +1,1 @@
+<resources><dimen name="np_radius_card">20dp</dimen><dimen name="np_radius_button">14dp</dimen><dimen name="np_radius_input">12dp</dimen><dimen name="np_screen_padding">20dp</dimen><dimen name="np_card_spacing">12dp</dimen><dimen name="np_icon_size">24dp</dimen><dimen name="np_icon_container">48dp</dimen></resources>
