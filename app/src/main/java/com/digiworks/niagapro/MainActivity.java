@@ -24,7 +24,8 @@ public class MainActivity extends Activity {
     private long activeBusinessId=1;
     private String activeBusinessName="Perniagaan Saya";
     private android.content.SharedPreferences profilePrefs;
-    private LinearLayout root, content;
+    private LinearLayout root, content, bottomNav;
+    private String currentPage="home";
     private TextView salesValue, expenseValue, profitValue, dateLabel;
     private final int navy = Color.rgb(8, 16, 48);
     private final int blue = Color.rgb(91, 115, 255);
@@ -81,9 +82,18 @@ public class MainActivity extends Activity {
         TextView welcome=text("Urus bisnes dengan lebih mudah.",20,Color.WHITE,true); welcome.setPadding(0,dp(4),0,0); header.addView(welcome);
         root.addView(header);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true);
-        content=new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18),dp(18),dp(18),dp(64)); content.setClipToPadding(false);
+        content=new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18),dp(18),dp(18),dp(24)); content.setClipToPadding(false);
         scroll.addView(content); root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        setContentView(root);
+        bottomNav=new LinearLayout(this);bottomNav.setOrientation(LinearLayout.HORIZONTAL);bottomNav.setPadding(dp(5),dp(8),dp(5),dp(8));bottomNav.setBackgroundResource(R.drawable.bg_bottom_navigation);
+        String[][] tabs={{"⌂","Utama","home"},{"＋","Jualan","sales"},{"▦","Stok","stock"},{"▤","Laporan","reports"},{"☰","Lainnya","more"}};
+        for(String[] tab:tabs){LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(Gravity.CENTER);
+            TextView glyph=text(tab[0],19,Color.WHITE,true);glyph.setGravity(Gravity.CENTER);
+            TextView label=text(tab[1],10,Color.WHITE,true);label.setGravity(Gravity.CENTER);
+            item.addView(glyph);item.addView(label);
+            item.setOnClickListener(v->{currentPage=tab[2];renderPage();});
+            bottomNav.addView(item,new LinearLayout.LayoutParams(0,dp(52),1));
+        }
+        root.addView(bottomNav);setContentView(root);
     }
     private LinearLayout card() {
         LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackgroundResource(R.drawable.bg_card_gradient);
@@ -111,69 +121,59 @@ public class MainActivity extends Activity {
     }
     private void buildDashboard() {
         content.removeAllViews();
-
-        // Ringkasan prestasi: KPI dipaparkan dahulu supaya mudah diimbas.
-        section("Ringkasan perniagaan","Prestasi kewangan perniagaan anda.");
-        LinearLayout profile=card();
-        profile.setOrientation(LinearLayout.HORIZONTAL);
-        profile.setGravity(Gravity.CENTER_VERTICAL);
-        TextView profileIcon=text("▣",22,0xFFB8A5FF,true);
-        profileIcon.setGravity(Gravity.CENTER);
-        profileIcon.setBackground(shape(0x443D72FF,16));
-        profile.addView(profileIcon,new LinearLayout.LayoutParams(dp(48),dp(48)));
-        LinearLayout profileWords=new LinearLayout(this);
-        profileWords.setOrientation(LinearLayout.VERTICAL);
-        profileWords.setPadding(dp(13),0,0,0);
-        profileWords.addView(text("PROFIL PERNIAGAAN",10,muted,true));
-        profileWords.addView(text(activeBusinessName,15,ink,true));
-        profileWords.addView(text("Tukar atau urus sehingga 5 perniagaan",10,muted,false));
-        profile.addView(profileWords,new LinearLayout.LayoutParams(0,-2,1));
-        profile.addView(text("›",26,muted,false));
-        LinearLayout.LayoutParams profileParams=new LinearLayout.LayoutParams(-1,-2);
-        profileParams.setMargins(0,dp(4),0,dp(12));
-        content.addView(profile,profileParams);
-        profile.setOnClickListener(v->showProfiles());
-
-        LinearLayout metrics=new LinearLayout(this);
-        metrics.setOrientation(LinearLayout.HORIZONTAL);
-        content.addView(metrics);
-        salesValue=metricIn(metrics,"JUALAN HARI INI",blue);
-        expenseValue=metricIn(metrics,"BELANJA HARI INI",0xFFFFA64D);
-        metrics.getChildAt(0).setOnClickListener(v->showHistory());
-        metrics.getChildAt(1).setOnClickListener(v->showHistory());
-
-        LinearLayout profit=card();
-        profit.setBackground(gradient(0xFF245FEA,0xFF8A35E8,20));
-        TextView pt=text("ANGGARAN UNTUNG BERSIH HARI INI",10,0xFFE3E9FF,true);
-        profit.addView(pt);
-        profitValue=text("RM 0.00",27,Color.WHITE,true);
-        profitValue.setPadding(0,dp(7),0,0);
-        profit.addView(profitValue);
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);
-        pp.setMargins(dp(4),dp(9),dp(4),dp(16));
-        content.addView(profit,pp);
-
-        section("Tindakan pantas","Rekod aktiviti harian dengan lebih cepat.");
-        LinearLayout quick=new LinearLayout(this);
-        quick.setOrientation(LinearLayout.HORIZONTAL);
-        content.addView(quick);
-        quickAction(quick,"＋","Rekod jualan",blue,()->addSale());
-        quickAction(quick,"－","Rekod belanja",0xFFFFA64D,()->addRecord(false));
-
-        section("Pengurusan","Semua alat perniagaan dalam satu tempat.");
-        LinearLayout row1=new LinearLayout(this);row1.setOrientation(LinearLayout.HORIZONTAL);content.addView(row1);
-        moduleTile(row1,"▦","Produk & inventori","Urus produk dan stok",0xFF8195FF,()->showProducts());
-        moduleTile(row1,"↔","Sejarah transaksi","Jualan dan belanja",0xFFB18BFF,()->showHistory());
-        LinearLayout row2=new LinearLayout(this);row2.setOrientation(LinearLayout.HORIZONTAL);content.addView(row2);
-        moduleTile(row2,"▤","Laporan ringkas","Prestasi kewangan",0xFF55D6B0,()->showReport());
-        moduleTile(row2,"RM","Hutang & bayaran","Pelanggan dan pembekal",0xFFE08BFF,()->showDebts());
-        LinearLayout row3=new LinearLayout(this);row3.setOrientation(LinearLayout.HORIZONTAL);content.addView(row3);
-        moduleTile(row3,"⇩","Backup & eksport","Simpan dan eksport data",0xFF69D6D0,()->showDataTools());
-
-        TextView foot=text("NiagaPro  •  Data disimpan dengan selamat pada peranti ini",10,muted,false);
-        foot.setGravity(Gravity.CENTER);
-        foot.setPadding(0,dp(20),0,dp(12));
-        content.addView(foot);
+        section("Ringkasan perniagaan","Prestasi kewangan hari ini.");
+        LinearLayout profile=card();profile.setOrientation(LinearLayout.HORIZONTAL);profile.setGravity(Gravity.CENTER_VERTICAL);
+        TextView ico=text("▣",22,0xFFB8A5FF,true);ico.setGravity(Gravity.CENTER);ico.setBackground(shape(0x443D72FF,16));
+        profile.addView(ico,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);words.setPadding(dp(13),0,0,0);
+        words.addView(text("PROFIL PERNIAGAAN",10,muted,true));words.addView(text(activeBusinessName,15,ink,true));words.addView(text("Tekan untuk tukar profil",10,muted,false));
+        profile.addView(words,new LinearLayout.LayoutParams(0,-2,1));profile.addView(text("›",26,muted,false));
+        LinearLayout.LayoutParams pr=new LinearLayout.LayoutParams(-1,-2);pr.setMargins(0,dp(5),0,dp(12));content.addView(profile,pr);profile.setOnClickListener(v->showProfiles());
+        LinearLayout metrics=new LinearLayout(this);metrics.setOrientation(LinearLayout.HORIZONTAL);content.addView(metrics);
+        salesValue=metricIn(metrics,"JUALAN HARI INI",blue);expenseValue=metricIn(metrics,"BELANJA HARI INI",0xFFFFA64D);
+        LinearLayout profit=card();profit.setBackground(gradient(0xFF245FEA,0xFF8A35E8,20));
+        profit.addView(text("ANGGARAN UNTUNG BERSIH HARI INI",10,0xFFE3E9FF,true));
+        profitValue=text("RM 0.00",27,Color.WHITE,true);profitValue.setPadding(0,dp(7),0,0);profit.addView(profitValue);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(dp(4),dp(12),dp(4),dp(18));content.addView(profit,pp);
+        section("Tindakan pantas","Pilih aktiviti untuk direkodkan.");
+        pageTile("＋","Rekod jualan","Masukkan jualan baharu",()->addSale());
+        pageTile("－","Rekod perbelanjaan","Catat kos operasi perniagaan",()->addRecord(false));
+        pageTile("▦","Lihat inventori","Semak produk dan baki stok",()->{currentPage="stock";renderPage();});
+        TextView foot=text("NiagaPro • Data disimpan pada peranti ini",10,muted,false);foot.setGravity(Gravity.CENTER);foot.setPadding(0,dp(20),0,dp(10));content.addView(foot);
+    }
+    private void pageTile(String icon,String title,String sub,Runnable action) {
+        LinearLayout tile=card();tile.setOrientation(LinearLayout.HORIZONTAL);tile.setGravity(Gravity.CENTER_VERTICAL);
+        TextView badge=text(icon,21,0xFFB8C6FF,true);badge.setGravity(Gravity.CENTER);badge.setBackground(shape(0x443D72FF,14));
+        tile.addView(badge,new LinearLayout.LayoutParams(dp(46),dp(46)));
+        LinearLayout labels=new LinearLayout(this);labels.setOrientation(LinearLayout.VERTICAL);labels.setPadding(dp(13),0,0,0);
+        labels.addView(text(title,14,ink,true));labels.addView(text(sub,11,muted,false));
+        tile.addView(labels,new LinearLayout.LayoutParams(0,-2,1));tile.addView(text("›",24,muted,false));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(dp(4),dp(4),dp(4),dp(8));content.addView(tile,p);
+        tile.setOnClickListener(v->action.run());
+    }
+    private void renderPage() {
+        if(content==null)return;
+        if("home".equals(currentPage))buildDashboard();
+        else if("sales".equals(currentPage)){content.removeAllViews();section("Jualan","Rekod jualan dan semak transaksi.");
+            pageTile("＋","Rekod jualan","Tambah jualan produk atau perkhidmatan",()->addSale());
+            pageTile("↔","Sejarah transaksi","Lihat semua jualan dan perbelanjaan",()->showHistory());
+            pageTile("RM","Hutang pelanggan","Urus baki pelanggan dan bayaran",()->showDebts());
+        } else if("stock".equals(currentPage)){content.removeAllViews();section("Produk & inventori","Urus katalog produk dan baki stok.");
+            pageTile("▦","Senarai produk","Tambah, edit atau padam produk",()->showProducts());
+            pageTile("＋","Tambah produk","Daftar produk baharu",()->productForm(-1));
+        } else if("reports".equals(currentPage)){content.removeAllViews();section("Laporan","Semak prestasi kewangan perniagaan.");
+            pageTile("▤","Untung & rugi","Jualan, kos, belanja dan untung bersih",()->showReport());
+            pageTile("↔","Sejarah transaksi","Semak rekod jualan dan belanja",()->showHistory());
+        } else {content.removeAllViews();section("Lain-lain","Tetapan dan alat pengurusan perniagaan.");
+            pageTile("▣","Profil perniagaan","Tukar, tambah atau urus profil",()->showProfiles());
+            pageTile("RM","Hutang & bayaran","Urus hutang pelanggan dan pembekal",()->showDebts());
+            pageTile("⇩","Backup & eksport","Backup, restore, CSV dan PDF",()->showDataTools());
+        }
+        if(bottomNav!=null){String[] keys={"home","sales","stock","reports","more"};for(int i=0;i<bottomNav.getChildCount();i++){
+            LinearLayout item=(LinearLayout)bottomNav.getChildAt(i);boolean selected=keys[i].equals(currentPage);
+            item.setBackground(selected?shape(0x553D72FF,14):null);
+            for(int j=0;j<item.getChildCount();j++)((TextView)item.getChildAt(j)).setTextColor(selected?0xFF9FB2FF:0xFFB8C4E5);
+        }}
     }
     private void quickAction(LinearLayout parent,String icon,String title,int color,Runnable run) {
         LinearLayout tile=card();
@@ -212,9 +212,12 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1); p.setMargins(dp(4),dp(5),dp(4),dp(5)); parent.addView(c,p); return v;
     }
     private void refresh() {
-        buildDashboard(); SQLiteDatabase db=helper.getReadableDatabase();
+        renderPage();
+        SQLiteDatabase db=helper.getReadableDatabase();
         double sales=sumToday(db,"sales"), expenses=sumToday(db,"expenses"), cost=sumTodayCost(db);
-        salesValue.setText(money.format(sales)); expenseValue.setText(money.format(expenses)); profitValue.setText(money.format(sales-cost-expenses));
+        if(salesValue!=null)salesValue.setText(money.format(sales));
+        if(expenseValue!=null)expenseValue.setText(money.format(expenses));
+        if(profitValue!=null)profitValue.setText(money.format(sales-cost-expenses));
     }
     private double sumToday(SQLiteDatabase db,String table) {
         Cursor c=db.rawQuery("SELECT COALESCE(SUM(amount),0) FROM "+table+" WHERE business_id=? AND date(created_at)=date('now','localtime')",new String[]{String.valueOf(activeBusinessId)});
