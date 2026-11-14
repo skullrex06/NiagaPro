@@ -145,7 +145,7 @@ public class MainActivity extends Activity {
         salesValue.setText(money.format(sales)); expenseValue.setText(money.format(expenses)); profitValue.setText(money.format(sales-cost-expenses));
     }
     private double sumToday(SQLiteDatabase db,String table) {
-        Cursor c=db.rawQuery("SELECT COALESCE(SUM(amount),0) FROM "+table+" WHERE date(created_at)=date('now','localtime')",null);
+        Cursor c=db.rawQuery("SELECT COALESCE(SUM(amount),0) FROM "+table+" WHERE business_id=? AND date(created_at)=date('now','localtime')",new String[]{String.valueOf(activeBusinessId)});
         double v=0; if(c.moveToFirst())v=c.getDouble(0); c.close(); return v;
     }
     private void addSale() {
@@ -250,7 +250,7 @@ public class MainActivity extends Activity {
         dialog.show();
     }
     private void showHistory() {
-        Cursor c=helper.getReadableDatabase().rawQuery("SELECT 'Jualan' AS jenis,amount,note,created_at FROM sales UNION ALL SELECT 'Belanja',amount,note,created_at FROM expenses ORDER BY created_at DESC LIMIT 50",null);
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT 'Jualan' AS jenis,amount,note,created_at FROM sales WHERE business_id=? UNION ALL SELECT 'Belanja',amount,note,created_at FROM expenses WHERE business_id=? ORDER BY created_at DESC LIMIT 50",new String[]{String.valueOf(activeBusinessId),String.valueOf(activeBusinessId)});
         StringBuilder out=new StringBuilder();
         while(c.moveToNext()) out.append(c.getString(0)).append(" • ").append(money.format(c.getDouble(1))).append("\n")
             .append(c.getString(2)==null?"":c.getString(2)).append("\n").append(c.getString(3)).append("\n\n");
@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
             row.addView(text(name,14,ink,true));
             row.addView(text("Harga "+money.format(price)+"  •  Kos "+money.format(cost)+"  •  Stok "+stock,11,muted,false));
             row.setOnClickListener(v->productForm(id,name,price,cost,stock));
-            row.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle("Padam produk?").setMessage("Produk "+name+" akan dipadam.").setNegativeButton("Batal",null).setPositiveButton("Padam",(d,w)->{helper.getWritableDatabase().delete("products","id=?",new String[]{String.valueOf(id)});showProducts();}).show();return true;});
+            row.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle("Padam produk?").setMessage("Produk "+name+" akan dipadam.").setNegativeButton("Batal",null).setPositiveButton("Padam",(d,w)->{helper.getWritableDatabase().delete("products","id=? AND business_id=?",new String[]{String.valueOf(id),String.valueOf(activeBusinessId)});showProducts();}).show();return true;});
             LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2); rp.bottomMargin=dp(7); list.addView(row,rp);
         }
         c.close();
@@ -293,7 +293,7 @@ public class MainActivity extends Activity {
                 if(p.signum()<0||k.signum()<0||p.scale()>2||k.scale()>2||q<0)throw new Exception();
                 ContentValues cv=new ContentValues();cv.put("business_id",activeBusinessId);cv.put("name",n);cv.put("price",p.doubleValue());cv.put("cost",k.doubleValue());cv.put("stock",q);
                 SQLiteDatabase writable=helper.getWritableDatabase();
-                long result=id==-1?writable.insert("products",null,cv):writable.update("products",cv,"id=?",new String[]{String.valueOf(id)});
+                long result=id==-1?writable.insert("products",null,cv):writable.update("products",cv,"id=? AND business_id=?",new String[]{String.valueOf(id),String.valueOf(activeBusinessId)});
                 if(result<0)throw new Exception();
                 dlg.dismiss();Toast.makeText(this,"Produk berjaya disimpan.",Toast.LENGTH_SHORT).show();showProducts();
             }catch(Exception e){Toast.makeText(this,"Semak nama, harga, kos dan kuantiti.",Toast.LENGTH_LONG).show();}
@@ -303,7 +303,7 @@ public class MainActivity extends Activity {
     private void showDebts() {
         SQLiteDatabase db=helper.getReadableDatabase();
         double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PELANGGAN'");
-        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
+        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PEMBEKAL'");
         String summary="Pelanggan berhutang kepada anda: "+money.format(receivable)+"\nAnda berhutang kepada pembekal: "+money.format(payable);
         new AlertDialog.Builder(this).setTitle("Hutang & bayaran").setMessage(summary)
             .setPositiveButton("Lihat rekod",(d,w)->listDebts())
@@ -360,7 +360,7 @@ public class MainActivity extends Activity {
                     ContentValues pay=new ContentValues();pay.put("business_id",activeBusinessId);pay.put("debt_id",id);pay.put("amount",a.doubleValue());pay.put("note",note.getText().toString().trim());
                     if(db.insert("debt_payments",null,pay)<0)throw new Exception();
                     ContentValues update=new ContentValues();update.put("balance",Math.max(0,balance-a.doubleValue()));
-                    if(db.update("debts",update,"id=?",new String[]{String.valueOf(id)})!=1)throw new Exception();
+                    if(db.update("debts",update,"id=? AND business_id=?",new String[]{String.valueOf(id),String.valueOf(activeBusinessId)})!=1)throw new Exception();
                     db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
                 dlg.dismiss();listDebts();Toast.makeText(this,"Bayaran berjaya direkodkan.",Toast.LENGTH_SHORT).show();
@@ -368,7 +368,7 @@ public class MainActivity extends Activity {
         }));dlg.show();
     }
     private double sumTodayCost(SQLiteDatabase db) {
-        Cursor c=db.rawQuery("SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE date(created_at)=date('now','localtime')",null);
+        Cursor c=db.rawQuery("SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE business_id=? AND date(created_at)=date('now','localtime')",new String[]{String.valueOf(activeBusinessId)});
         double v=0;if(c.moveToFirst())v=c.getDouble(0);c.close();return v;
     }
     private void showReport() {
@@ -537,7 +537,7 @@ public class MainActivity extends Activity {
         double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales WHERE business_id="+activeBusinessId);
         double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE business_id="+activeBusinessId);
         double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses WHERE business_id="+activeBusinessId);
-        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PELANGGAN'");
+        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PELANGGAN'");
         double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
         android.graphics.pdf.PdfDocument pdf=new android.graphics.pdf.PdfDocument();
         android.graphics.pdf.PdfDocument.PageInfo info=new android.graphics.pdf.PdfDocument.PageInfo.Builder(595,842,1).create();
