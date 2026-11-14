@@ -423,6 +423,7 @@ public class MainActivity extends Activity {
                 if(found<5)throw new Exception("Fail backup tidak sah atau versi tidak serasi.");
                 helper.close();
                 java.io.File target=getDatabasePath("niagapro.db");
+                new java.io.File(target.getAbsolutePath()+"-wal").delete();new java.io.File(target.getAbsolutePath()+"-shm").delete();
                 java.io.File parent=target.getParentFile();if(parent!=null)parent.mkdirs();
                 if(!temp.renameTo(target)){copyStream(new java.io.FileInputStream(temp),new java.io.FileOutputStream(target));temp.delete();}
                 helper=new BusinessDb(this);refresh();
@@ -433,7 +434,7 @@ public class MainActivity extends Activity {
                 writePdf(uri);Toast.makeText(this,"Laporan PDF berjaya dieksport.",Toast.LENGTH_LONG).show();
             }
         } catch(Exception e) {
-            try{if(helper==null)helper=new BusinessDb(this);}catch(Exception ignored){}
+            try{helper=new BusinessDb(this);}catch(Exception ignored){}
             Toast.makeText(this,"Operasi gagal: "+e.getMessage(),Toast.LENGTH_LONG).show();
         }
     }
@@ -445,7 +446,7 @@ public class MainActivity extends Activity {
         java.io.OutputStream out=getContentResolver().openOutputStream(uri);
         if(out==null)throw new java.io.IOException("Tidak dapat membuka fail.");
         java.io.OutputStreamWriter w=new java.io.OutputStreamWriter(out,java.nio.charset.Charset.forName("UTF-8"));
-        w.write("\uFEFFJENIS,ID,TARIKH,JUMLAH,KOS,KAEDAH/KATEGORI,CATATAN/NAMA,BAKI\\r\\n");
+        w.write("\uFEFFJENIS,ID,TARIKH,JUMLAH,KOS,KAEDAH/KATEGORI,CATATAN/NAMA,BAKI\r\n");
         SQLiteDatabase db=helper.getReadableDatabase();
         exportRows(w,db,"SELECT id,created_at,amount,cost_amount,method,note,'' FROM sales ORDER BY id","JUALAN");
         exportRows(w,db,"SELECT id,created_at,amount,0,category,note,'' FROM expenses ORDER BY id","BELANJA");
@@ -457,7 +458,7 @@ public class MainActivity extends Activity {
         try{while(c.moveToNext()){
             StringBuilder line=new StringBuilder(type);
             for(int i=0;i<7;i++){String value=c.isNull(i)?"":c.getString(i);line.append(',').append('"').append(value.replace("\"","\"\"")).append('"');}
-            w.write(line.append("\\r\\n").toString());
+            w.write(line.append("\r\n").toString());
         }}finally{c.close();}
     }
     private void writePdf(android.net.Uri uri)throws Exception {
