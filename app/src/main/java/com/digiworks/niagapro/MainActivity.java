@@ -21,6 +21,9 @@ import java.util.Date;
 
 public class MainActivity extends Activity {
     private BusinessDb helper;
+    private long activeBusinessId=1;
+    private String activeBusinessName="Perniagaan Saya";
+    private android.content.SharedPreferences profilePrefs;
     private LinearLayout root, content;
     private TextView salesValue, expenseValue, profitValue, dateLabel;
     private final int navy = Color.rgb(15, 27, 52);
@@ -33,6 +36,9 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         helper = new BusinessDb(this);
+        profilePrefs=getSharedPreferences("niagapro_profile",MODE_PRIVATE);
+        activeBusinessId=profilePrefs.getLong("active_id",1);
+        loadActiveProfile();
         getWindow().setStatusBarColor(navy);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
@@ -66,6 +72,9 @@ public class MainActivity extends Activity {
         brandText.addView(text("NiagaPro",21,Color.WHITE,true));
         brandText.addView(text("PENGURUS PERNIAGAAN",9,0xFFCFD9F0,true));
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
+        TextView profileButton=text("▣ "+activeBusinessName+"  ▾",11,Color.WHITE,true);
+        profileButton.setPadding(dp(10),dp(9),dp(10),dp(9));profileButton.setBackground(shape(0x334F8BFF,20));
+        brand.addView(profileButton);profileButton.setOnClickListener(v->showProfiles());
         TextView plan = text("FREE",10,Color.WHITE,true); plan.setPadding(dp(12),dp(7),dp(12),dp(7)); plan.setBackground(shape(0x334F8BFF,30)); brand.addView(plan);
         header.addView(brand);
         dateLabel=text(new SimpleDateFormat("EEEE, d MMMM yyyy",new Locale("ms","MY")).format(new Date()),13,0xFFD5DDF0,false); dateLabel.setPadding(0,dp(22),0,0); header.addView(dateLabel);
@@ -103,6 +112,7 @@ public class MainActivity extends Activity {
     private void buildDashboard() {
         content.removeAllViews();
         section("Prestasi hari ini","Pantau aliran wang perniagaan anda.");
+        action("▣","Profil perniagaan: "+activeBusinessName,"Tukar atau tambah sehingga 5 perniagaan",0xFF7958D8,()->showProfiles());
         LinearLayout metrics=new LinearLayout(this); metrics.setOrientation(LinearLayout.HORIZONTAL);
         content.addView(metrics);
         salesValue=metricIn(metrics,"JUALAN",blue);
