@@ -138,9 +138,15 @@ public class MainActivity extends Activity {
     }
     private void addRecord(boolean sale) {
         EditText amount=new EditText(this); amount.setSingleLine(true); amount.setHint("Contoh: 25.50"); amount.setInputType(8194);
-        EditText note=new EditText(this); note.setHint(sale?"Catatan / produk (pilihan)":"Kategori / catatan");
+        EditText note=new EditText(this); note.setHint(sale?"Catatan / produk (pilihan)":"Catatan tambahan (pilihan)");
+        Spinner category=new Spinner(this);
+        String[] categories={"Makanan & minuman","Sewa","Bil & utiliti","Pengangkutan","Gaji / upah","Stok / bahan","Pemasaran","Peralatan","Lain-lain"};
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,categories);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); category.setAdapter(adapter);
         LinearLayout box=new LinearLayout(this); box.setPadding(dp(20),dp(8),dp(20),0); box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(text("Jumlah (RM)",12,muted,true)); box.addView(amount); box.addView(note);
+        box.addView(text("Jumlah (RM)",12,muted,true)); box.addView(amount);
+        if(!sale){box.addView(text("Kategori perbelanjaan",12,muted,true));box.addView(category);}
+        box.addView(note);
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle(sale?"Rekod jualan":"Rekod perbelanjaan").setView(box)
           .setNegativeButton("Batal",null).setPositiveButton("Simpan",null).create();
         dialog.setOnShowListener(x->dialog.getButton(-1).setOnClickListener(v->{
@@ -149,7 +155,7 @@ public class MainActivity extends Activity {
                 java.math.BigDecimal parsed=new java.math.BigDecimal(raw);
                 if(parsed.scale()>2 || parsed.compareTo(java.math.BigDecimal.ZERO)<=0) throw new Exception();
                 ContentValues cv=new ContentValues(); cv.put("amount",parsed.doubleValue());
-                if(sale) cv.put("method","Tunai"); else cv.put("category","Lain-lain");
+                if(sale) cv.put("method","Tunai"); else cv.put("category",category.getSelectedItem().toString());
                 cv.put("note",note.getText().toString().trim());
                 long id=helper.getWritableDatabase().insert(sale?"sales":"expenses",null,cv);
                 if(id==-1) throw new Exception();
