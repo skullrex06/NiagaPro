@@ -111,28 +111,102 @@ public class MainActivity extends Activity {
     }
     private void buildDashboard() {
         content.removeAllViews();
-        section("Prestasi hari ini","Pantau aliran wang perniagaan anda.");
-        action("▣","Profil perniagaan: "+activeBusinessName,"Tukar atau tambah sehingga 5 perniagaan",0xFF7958D8,()->showProfiles());
-        LinearLayout metrics=new LinearLayout(this); metrics.setOrientation(LinearLayout.HORIZONTAL);
+
+        // Ringkasan prestasi: KPI dipaparkan dahulu supaya mudah diimbas.
+        section("Ringkasan perniagaan","Prestasi kewangan perniagaan anda.");
+        LinearLayout profile=card();
+        profile.setOrientation(LinearLayout.HORIZONTAL);
+        profile.setGravity(Gravity.CENTER_VERTICAL);
+        TextView profileIcon=text("▣",22,0xFFB8A5FF,true);
+        profileIcon.setGravity(Gravity.CENTER);
+        profileIcon.setBackground(shape(0x443D72FF,16));
+        profile.addView(profileIcon,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        LinearLayout profileWords=new LinearLayout(this);
+        profileWords.setOrientation(LinearLayout.VERTICAL);
+        profileWords.setPadding(dp(13),0,0,0);
+        profileWords.addView(text("PROFIL PERNIAGAAN",10,muted,true));
+        profileWords.addView(text(activeBusinessName,15,ink,true));
+        profileWords.addView(text("Tukar atau urus sehingga 5 perniagaan",10,muted,false));
+        profile.addView(profileWords,new LinearLayout.LayoutParams(0,-2,1));
+        profile.addView(text("›",26,muted,false));
+        LinearLayout.LayoutParams profileParams=new LinearLayout.LayoutParams(-1,-2);
+        profileParams.setMargins(0,dp(4),0,dp(12));
+        content.addView(profile,profileParams);
+        profile.setOnClickListener(v->showProfiles());
+
+        LinearLayout metrics=new LinearLayout(this);
+        metrics.setOrientation(LinearLayout.HORIZONTAL);
         content.addView(metrics);
-        salesValue=metricIn(metrics,"JUALAN",blue);
-        expenseValue=metricIn(metrics,"BELANJA",0xFFE28A36);
+        salesValue=metricIn(metrics,"JUALAN HARI INI",blue);
+        expenseValue=metricIn(metrics,"BELANJA HARI INI",0xFFFFA64D);
         metrics.getChildAt(0).setOnClickListener(v->showHistory());
         metrics.getChildAt(1).setOnClickListener(v->showHistory());
-        LinearLayout profit=card(); profit.setBackground(gradient(0xFF245FEA,0xFF8A35E8,18));
-        TextView pt=text("UNTUNG BERSIH HARI INI",11,0xFFE3E9FF,true); profit.addView(pt);
-        profitValue=text("RM 0.00",25,Color.WHITE,true); profitValue.setPadding(0,dp(8),0,0); profit.addView(profitValue);
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2); pp.setMargins(dp(4),dp(5),dp(4),dp(8)); content.addView(profit,pp);
-        section("Urus niaga","Rekod aktiviti harian dengan pantas.");
-        action("+","Rekod jualan","Jual produk atau rekod perkhidmatan",blue,()->addSale());
-        action("−","Rekod perbelanjaan","Catat kos operasi perniagaan",0xFFE28A36,()->addRecord(false));
-        section("Pengurusan","Modul perniagaan.");
-        action("▦","Produk & inventori","Tambah, edit, padam dan kemas kini stok",blue,()->showProducts());
-        action("↔","Sejarah transaksi","Semak rekod jualan dan belanja",0xFF7958D8,()->showHistory());
-        action("▤","Laporan ringkas","Ringkasan jualan dan perbelanjaan",0xFF269A83,()->showReport());
-        action("RM","Hutang pelanggan & pembekal","Rekod hutang, bayaran dan baki tertunggak",0xFFB45ACB,()->showDebts());
-        action("⇩","Backup & eksport","Simpan data, pulihkan backup, eksport CSV dan PDF",0xFF269A83,()->showDataTools());
-        TextView foot=text("NiagaPro • Data disimpan dalam peranti ini",11,muted,false); foot.setGravity(Gravity.CENTER); foot.setPadding(0,dp(18),0,dp(8)); content.addView(foot);
+
+        LinearLayout profit=card();
+        profit.setBackground(gradient(0xFF245FEA,0xFF8A35E8,20));
+        TextView pt=text("ANGGARAN UNTUNG BERSIH HARI INI",10,0xFFE3E9FF,true);
+        profit.addView(pt);
+        profitValue=text("RM 0.00",27,Color.WHITE,true);
+        profitValue.setPadding(0,dp(7),0,0);
+        profit.addView(profitValue);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);
+        pp.setMargins(dp(4),dp(9),dp(4),dp(16));
+        content.addView(profit,pp);
+
+        section("Tindakan pantas","Rekod aktiviti harian dengan lebih cepat.");
+        LinearLayout quick=new LinearLayout(this);
+        quick.setOrientation(LinearLayout.HORIZONTAL);
+        content.addView(quick);
+        quickAction(quick,"＋","Rekod jualan",blue,()->addSale());
+        quickAction(quick,"－","Rekod belanja",0xFFFFA64D,()->addRecord(false));
+
+        section("Pengurusan","Semua alat perniagaan dalam satu tempat.");
+        LinearLayout row1=new LinearLayout(this);row1.setOrientation(LinearLayout.HORIZONTAL);content.addView(row1);
+        moduleTile(row1,"▦","Produk & inventori","Urus produk dan stok",0xFF8195FF,()->showProducts());
+        moduleTile(row1,"↔","Sejarah transaksi","Jualan dan belanja",0xFFB18BFF,()->showHistory());
+        LinearLayout row2=new LinearLayout(this);row2.setOrientation(LinearLayout.HORIZONTAL);content.addView(row2);
+        moduleTile(row2,"▤","Laporan ringkas","Prestasi kewangan",0xFF55D6B0,()->showReport());
+        moduleTile(row2,"RM","Hutang & bayaran","Pelanggan dan pembekal",0xFFE08BFF,()->showDebts());
+        LinearLayout row3=new LinearLayout(this);row3.setOrientation(LinearLayout.HORIZONTAL);content.addView(row3);
+        moduleTile(row3,"⇩","Backup & eksport","Simpan dan eksport data",0xFF69D6D0,()->showDataTools());
+
+        TextView foot=text("NiagaPro  •  Data disimpan dengan selamat pada peranti ini",10,muted,false);
+        foot.setGravity(Gravity.CENTER);
+        foot.setPadding(0,dp(20),0,dp(12));
+        content.addView(foot);
+    }
+    private void quickAction(LinearLayout parent,String icon,String title,int color,Runnable run) {
+        LinearLayout tile=card();
+        tile.setGravity(Gravity.CENTER_VERTICAL);
+        tile.setOrientation(LinearLayout.HORIZONTAL);
+        TextView badge=text(icon,22,color,true);
+        badge.setGravity(Gravity.CENTER);
+        badge.setBackground(shape(0x443D72FF,14));
+        tile.addView(badge,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        TextView label=text(title,13,ink,true);
+        label.setPadding(dp(10),0,0,0);
+        tile.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(82),1);
+        p.setMargins(dp(4),dp(3),dp(4),dp(7));
+        parent.addView(tile,p);
+        tile.setOnClickListener(v->run.run());
+    }
+    private void moduleTile(LinearLayout parent,String icon,String title,String subtitle,int color,Runnable run) {
+        LinearLayout tile=card();
+        tile.setGravity(Gravity.CENTER_VERTICAL);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        TextView badge=text(icon,20,color,true);
+        badge.setGravity(Gravity.CENTER);
+        badge.setBackground(shape(0x443D72FF,14));
+        tile.addView(badge,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        TextView heading=text(title,13,ink,true);
+        heading.setPadding(0,dp(10),0,dp(2));
+        tile.addView(heading);
+        tile.addView(text(subtitle,10,muted,false));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(126),1);
+        p.setMargins(dp(4),dp(3),dp(4),dp(7));
+        parent.addView(tile,p);
+        tile.setOnClickListener(v->run.run());
     }
     private TextView metricIn(LinearLayout parent,String title,int color) {
         LinearLayout c=card(); c.addView(text(title,10,muted,true));
