@@ -129,8 +129,8 @@ public class MainActivity extends Activity {
     }
     private void refresh() {
         buildDashboard(); SQLiteDatabase db=helper.getReadableDatabase();
-        double sales=sumToday(db,"sales"), expenses=sumToday(db,"expenses");
-        salesValue.setText(money.format(sales)); expenseValue.setText(money.format(expenses)); profitValue.setText(money.format(sales-expenses));
+        double sales=sumToday(db,"sales"), expenses=sumToday(db,"expenses"), cost=sumTodayCost(db);
+        salesValue.setText(money.format(sales)); expenseValue.setText(money.format(expenses)); profitValue.setText(money.format(sales-cost-expenses));
     }
     private double sumToday(SQLiteDatabase db,String table) {
         Cursor c=db.rawQuery("SELECT COALESCE(SUM(amount),0) FROM "+table+" WHERE date(created_at)=date('now','localtime')",null);
@@ -186,6 +186,9 @@ public class MainActivity extends Activity {
                         if(changed!=1)throw new IllegalStateException("Stok tidak mencukupi.");
                     }
                     ContentValues sale=new ContentValues();sale.put("amount",totalAmount.doubleValue());sale.put("method",payment.getSelectedItem().toString());
+                    double itemCost=0;
+                    if(productId!=-1){ Cursor pc=db.rawQuery("SELECT cost FROM products WHERE id=?",new String[]{String.valueOf(productId)}); if(pc.moveToFirst())itemCost=pc.getDouble(0)*q; pc.close(); }
+                    sale.put("cost_amount",itemCost);
                     sale.put("note",itemName+" x"+q+(note.getText().length()>0?" • "+note.getText().toString().trim():""));
                     if(db.insert("sales",null,sale)==-1)throw new IllegalStateException("Gagal simpan jualan.");
                     db.setTransactionSuccessful();
@@ -285,10 +288,31 @@ public class MainActivity extends Activity {
         }));
         dlg.show();
     }
+    private double sumTodayCost(SQLiteDatabase db) {
+        Cursor c=db.rawQuery("SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE date(created_at)=date('now','localtime')",null);
+        double v=0;if(c.moveToFirst())v=c.getDouble(0);c.close();return v;
+    }
     private void showReport() {
-        SQLiteDatabase db=helper.getReadableDatabase(); double s=sumToday(db,"sales"), e=sumToday(db,"expenses");
-        String msg="Jualan hari ini: "+money.format(s)+"\nPerbelanjaan hari ini: "+money.format(e)+"\nUntung bersih: "+money.format(s-e)+"\n\nLaporan ini berdasarkan rekod hari ini sahaja.";
-        new AlertDialog.Builder(this).setTitle("Laporan ringkas").setMessage(msg).setPositiveButton("Tutup",null).show();
+        final String[] periods={"Hari ini","7 hari terakhir","Bulan ini","Keseluruhan"};
+        new AlertDialog.Builder(this).setTitle("Pilih tempoh laporan").setItems(periods,(dialog,which)->renderReport(which)).setNegativeButton("Tutup",null).show();
+    }
+    private void renderReport(int period) {
+        String where;
+        if(period==0) where="date(created_at)=date('now','localtime')";
+        else if(period==1) where="datetime(created_at)>=datetime('now','localtime','-6 days')";
+        else if(period==2) where="strftime('%Y-%m',created_at)=strftime('%Y-%m','now','localtime')";
+        else where="1=1";
+        SQLiteDatabase db=helper.getReadableDatabase();
+        double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales WHERE "+where);
+        double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE "+where);
+        double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses WHERE "+where);
+        double gross=sales-cost, net=gross-expenses;
+        String[] labels={"Hari ini","7 hari terakhir","Bulan ini","Keseluruhan"};
+        String msg="Tempoh: "+labels[period]+"\n\nJualan: "+money.format(sales)+"\nKos produk terjual: "+money.format(cost)+"\nUntung kasar: "+money.format(gross)+"\nPerbelanjaan: "+money.format(expenses)+"\n--------------------\nUNTUNG BERSIH: "+money.format(net)+"\n\nNota: Kos produk dikira berdasarkan kos seunit yang direkod ketika jualan. Jualan lama sebelum kemas kini ini mungkin tiada rekod kos.";
+        new AlertDialog.Builder(this).setTitle("Laporan untung rugi").setMessage(msg).setPositiveButton("Tukar tempoh",(d,w)->showReport()).setNegativeButton("Tutup",null).show();
+    }
+    private double querySum(SQLiteDatabase db,String sql) {
+        Cursor c=db.rawQuery(sql,null);double v=0;if(c.moveToFirst())v=c.getDouble(0);c.close();return v;
     }
     @Override protected void onDestroy(){if(helper!=null)helper.close();super.onDestroy();}
 }
