@@ -40,8 +40,8 @@ public class MainActivity extends Activity {
         activeBusinessId=profilePrefs.getLong("active_id",1);
         loadActiveProfile();
         getWindow().setStatusBarColor(navy);
-        getWindow().setNavigationBarColor(Color.WHITE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        getWindow().setNavigationBarColor(Color.rgb(10,18,55));
+        getWindow().getDecorView().setSystemUiVisibility(0);
         buildUi();
         refresh();
     }
@@ -62,9 +62,9 @@ public class MainActivity extends Activity {
         return t;
     }
     private void buildUi() {
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackground(gradient(Color.rgb(7,15,43),Color.rgb(48,24,105),0));
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundResource(R.drawable.bg_app_gradient);
         LinearLayout header = new LinearLayout(this); header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(22),dp(18),dp(22),dp(22)); header.setBackground(gradient(navy,Color.rgb(40,35,130),24));
+        header.setPadding(dp(22),dp(18),dp(22),dp(22)); header.setBackgroundResource(R.drawable.bg_header_gradient);
         LinearLayout brand = new LinearLayout(this); brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView logo = text("N",22,Color.WHITE,true); logo.setGravity(Gravity.CENTER); logo.setBackground(shape(0x334F8BFF,14));
         brand.addView(logo,new LinearLayout.LayoutParams(dp(42),dp(42)));
@@ -86,7 +86,7 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
     private LinearLayout card() {
-        LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackground(gradient(Color.rgb(25,43,91),Color.rgb(42,43,112),18));
+        LinearLayout c=new LinearLayout(this); c.setOrientation(LinearLayout.VERTICAL); c.setPadding(dp(16),dp(15),dp(16),dp(15)); c.setBackgroundResource(R.drawable.bg_card_gradient);
         if(android.os.Build.VERSION.SDK_INT>=21) c.setElevation(dp(2));
         return c;
     }
@@ -179,9 +179,8 @@ public class MainActivity extends Activity {
         LinearLayout tile=card();
         tile.setGravity(Gravity.CENTER_VERTICAL);
         tile.setOrientation(LinearLayout.HORIZONTAL);
-        TextView badge=text(icon,22,color,true);
-        badge.setGravity(Gravity.CENTER);
-        badge.setBackground(shape(0x443D72FF,14));
+        FrameLayout badge=new FrameLayout(this); badge.setBackgroundResource(R.drawable.bg_icon_container);
+        ImageView glyph=vectorIcon(iconResource(title)); FrameLayout.LayoutParams gp=new FrameLayout.LayoutParams(dp(23),dp(23),Gravity.CENTER); badge.addView(glyph,gp);
         tile.addView(badge,new LinearLayout.LayoutParams(dp(42),dp(42)));
         TextView label=text(title,13,ink,true);
         label.setPadding(dp(10),0,0,0);
@@ -195,9 +194,8 @@ public class MainActivity extends Activity {
         LinearLayout tile=card();
         tile.setGravity(Gravity.CENTER_VERTICAL);
         tile.setOrientation(LinearLayout.VERTICAL);
-        TextView badge=text(icon,20,color,true);
-        badge.setGravity(Gravity.CENTER);
-        badge.setBackground(shape(0x443D72FF,14));
+        FrameLayout badge=new FrameLayout(this); badge.setBackgroundResource(R.drawable.bg_icon_container);
+        ImageView glyph=vectorIcon(iconResource(title)); FrameLayout.LayoutParams gp=new FrameLayout.LayoutParams(dp(23),dp(23),Gravity.CENTER); badge.addView(glyph,gp);
         tile.addView(badge,new LinearLayout.LayoutParams(dp(42),dp(42)));
         TextView heading=text(title,13,ink,true);
         heading.setPadding(0,dp(10),0,dp(2));
@@ -332,7 +330,21 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Sejarah transaksi").setMessage(out.toString()).setPositiveButton("Tutup",null).show();
     }
     private EditText input(String hint, int type) {
-        EditText e=new EditText(this); e.setSingleLine(true); e.setHint(hint); e.setInputType(type); return e;
+        EditText e=new EditText(this); e.setSingleLine(true); e.setHint(hint); e.setInputType(type);
+        e.setTextColor(Color.WHITE); e.setHintTextColor(0xFFB7C4E8); e.setPadding(dp(12),dp(9),dp(12),dp(9)); e.setBackgroundResource(R.drawable.bg_input_field); return e;
+    }
+    private int iconResource(String title) {
+        if(title.contains("Produk")) return R.drawable.ic_inventory;
+        if(title.contains("Sejarah")) return R.drawable.ic_history;
+        if(title.contains("Laporan")) return R.drawable.ic_report;
+        if(title.contains("Hutang")) return R.drawable.ic_debt;
+        if(title.contains("Backup")) return R.drawable.ic_backup;
+        if(title.contains("jualan")) return R.drawable.ic_sales;
+        if(title.contains("belanja")) return R.drawable.ic_expense;
+        return R.drawable.ic_dashboard;
+    }
+    private ImageView vectorIcon(int res) {
+        ImageView image=new ImageView(this); image.setImageResource(res); image.setScaleType(ImageView.ScaleType.FIT_CENTER); return image;
     }
     private void showProducts() {
         Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,cost,stock FROM products WHERE business_id=? ORDER BY name",new String[]{String.valueOf(activeBusinessId)});
@@ -340,7 +352,7 @@ public class MainActivity extends Activity {
         while(c.moveToNext()) {
             final long id=c.getLong(0); final String name=c.getString(1);
             final double price=c.getDouble(2), cost=c.getDouble(3); final int stock=c.getInt(4);
-            LinearLayout row=new LinearLayout(this); row.setOrientation(LinearLayout.VERTICAL); row.setPadding(dp(12),dp(10),dp(12),dp(10)); row.setBackground(shape(0xFFF3F5FA,12));
+            LinearLayout row=new LinearLayout(this); row.setOrientation(LinearLayout.VERTICAL); row.setPadding(dp(12),dp(10),dp(12),dp(10)); row.setBackgroundResource(R.drawable.bg_card_module);
             row.addView(text(name,14,ink,true));
             row.addView(text("Harga "+money.format(price)+"  •  Kos "+money.format(cost)+"  •  Stok "+stock,11,muted,false));
             row.setOnClickListener(v->productForm(id,name,price,cost,stock));
@@ -408,7 +420,7 @@ public class MainActivity extends Activity {
         LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
         while(c.moveToNext()){
             long id=c.getLong(0);String type=c.getString(1),name=c.getString(2),desc=c.getString(3);double original=c.getDouble(4),balance=c.getDouble(5);
-            LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(12),dp(10),dp(12),dp(10));row.setBackground(shape(0xFFF2F5FB,12));
+            LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(12),dp(10),dp(12),dp(10));row.setBackgroundResource(R.drawable.bg_card_module);
             row.addView(text(name+" • "+type,14,ink,true));row.addView(text("Asal "+money.format(original)+" | Baki "+money.format(balance),12,blue,true));
             if(desc!=null&&!desc.isEmpty())row.addView(text(desc,11,muted,false));
             row.setOnClickListener(v->recordDebtPayment(id,name,balance));
