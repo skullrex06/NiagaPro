@@ -149,7 +149,7 @@ public class MainActivity extends Activity {
         double v=0; if(c.moveToFirst())v=c.getDouble(0); c.close(); return v;
     }
     private void addSale() {
-        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,stock FROM products ORDER BY name",null);
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,stock FROM products WHERE business_id=? ORDER BY name",new String[]{String.valueOf(activeBusinessId)});
         java.util.ArrayList<Long> ids=new java.util.ArrayList<>();
         java.util.ArrayList<String> labels=new java.util.ArrayList<>();
         java.util.ArrayList<Double> prices=new java.util.ArrayList<>();
@@ -194,12 +194,12 @@ public class MainActivity extends Activity {
                 try{
                     if(productId!=-1){
                         ContentValues stockUpdate=new ContentValues();stockUpdate.put("stock",stocks.get(pos)-q);
-                        int changed=db.update("products",stockUpdate,"id=? AND stock>=?",new String[]{String.valueOf(productId),String.valueOf(q)});
+                        int changed=db.update("products",stockUpdate,"id=? AND business_id=? AND stock>=?",new String[]{String.valueOf(productId),String.valueOf(activeBusinessId),String.valueOf(q)});
                         if(changed!=1)throw new IllegalStateException("Stok tidak mencukupi.");
                     }
-                    ContentValues sale=new ContentValues();sale.put("amount",totalAmount.doubleValue());sale.put("method",payment.getSelectedItem().toString());
+                    ContentValues sale=new ContentValues();sale.put("business_id",activeBusinessId);sale.put("amount",totalAmount.doubleValue());sale.put("method",payment.getSelectedItem().toString());
                     double itemCost=0;
-                    if(productId!=-1){ Cursor pc=db.rawQuery("SELECT cost FROM products WHERE id=?",new String[]{String.valueOf(productId)}); if(pc.moveToFirst())itemCost=pc.getDouble(0)*q; pc.close(); }
+                    if(productId!=-1){ Cursor pc=db.rawQuery("SELECT cost FROM products WHERE id=? AND business_id=?",new String[]{String.valueOf(productId),String.valueOf(activeBusinessId)}); if(pc.moveToFirst())itemCost=pc.getDouble(0)*q; pc.close(); }
                     sale.put("cost_amount",itemCost);
                     sale.put("note",itemName+" x"+q+(note.getText().length()>0?" • "+note.getText().toString().trim():""));
                     if(db.insert("sales",null,sale)==-1)throw new IllegalStateException("Gagal simpan jualan.");
@@ -239,7 +239,7 @@ public class MainActivity extends Activity {
                 String raw=amount.getText().toString().trim().replace(",",".");
                 java.math.BigDecimal parsed=new java.math.BigDecimal(raw);
                 if(parsed.scale()>2 || parsed.compareTo(java.math.BigDecimal.ZERO)<=0) throw new Exception();
-                ContentValues cv=new ContentValues(); cv.put("amount",parsed.doubleValue());
+                ContentValues cv=new ContentValues(); cv.put("business_id",activeBusinessId); cv.put("amount",parsed.doubleValue());
                 if(sale) cv.put("method","Tunai"); else cv.put("category",category.getSelectedItem().toString());
                 cv.put("note",note.getText().toString().trim());
                 long id=helper.getWritableDatabase().insert(sale?"sales":"expenses",null,cv);
@@ -261,7 +261,7 @@ public class MainActivity extends Activity {
         EditText e=new EditText(this); e.setSingleLine(true); e.setHint(hint); e.setInputType(type); return e;
     }
     private void showProducts() {
-        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,cost,stock FROM products ORDER BY name",null);
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,cost,stock FROM products WHERE business_id=? ORDER BY name",new String[]{String.valueOf(activeBusinessId)});
         LinearLayout list=new LinearLayout(this); list.setOrientation(LinearLayout.VERTICAL); list.setPadding(dp(18),dp(8),dp(18),dp(8));
         while(c.moveToNext()) {
             final long id=c.getLong(0); final String name=c.getString(1);
@@ -291,7 +291,7 @@ public class MainActivity extends Activity {
                 java.math.BigDecimal p=new java.math.BigDecimal(price.getText().toString().trim().replace(",",".")), k=new java.math.BigDecimal(cost.getText().toString().trim().replace(",","."));
                 int q=Integer.parseInt(stock.getText().toString().trim());
                 if(p.signum()<0||k.signum()<0||p.scale()>2||k.scale()>2||q<0)throw new Exception();
-                ContentValues cv=new ContentValues();cv.put("name",n);cv.put("price",p.doubleValue());cv.put("cost",k.doubleValue());cv.put("stock",q);
+                ContentValues cv=new ContentValues();cv.put("business_id",activeBusinessId);cv.put("name",n);cv.put("price",p.doubleValue());cv.put("cost",k.doubleValue());cv.put("stock",q);
                 SQLiteDatabase writable=helper.getWritableDatabase();
                 long result=id==-1?writable.insert("products",null,cv):writable.update("products",cv,"id=?",new String[]{String.valueOf(id)});
                 if(result<0)throw new Exception();
@@ -302,7 +302,7 @@ public class MainActivity extends Activity {
     }
     private void showDebts() {
         SQLiteDatabase db=helper.getReadableDatabase();
-        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PELANGGAN'");
+        double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PELANGGAN'");
         double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
         String summary="Pelanggan berhutang kepada anda: "+money.format(receivable)+"\nAnda berhutang kepada pembekal: "+money.format(payable);
         new AlertDialog.Builder(this).setTitle("Hutang & bayaran").setMessage(summary)
@@ -323,14 +323,14 @@ public class MainActivity extends Activity {
             try{
                 String n=name.getText().toString().trim();java.math.BigDecimal a=new java.math.BigDecimal(amount.getText().toString().trim().replace(",","." ));
                 if(n.isEmpty()||a.signum()<=0||a.scale()>2)throw new Exception();
-                ContentValues cv=new ContentValues();cv.put("party_type",type.getSelectedItem().toString());cv.put("party_name",n);cv.put("description",desc.getText().toString().trim());cv.put("original_amount",a.doubleValue());cv.put("balance",a.doubleValue());
+                ContentValues cv=new ContentValues();cv.put("business_id",activeBusinessId);cv.put("party_type",type.getSelectedItem().toString());cv.put("party_name",n);cv.put("description",desc.getText().toString().trim());cv.put("original_amount",a.doubleValue());cv.put("balance",a.doubleValue());
                 if(helper.getWritableDatabase().insert("debts",null,cv)<0)throw new Exception();
                 dlg.dismiss();listDebts();
             }catch(Exception e){Toast.makeText(this,"Semak nama dan jumlah hutang.",Toast.LENGTH_LONG).show();}
         }));dlg.show();
     }
     private void listDebts() {
-        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,party_type,party_name,description,original_amount,balance FROM debts WHERE balance>0 ORDER BY created_at DESC",null);
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,party_type,party_name,description,original_amount,balance FROM debts WHERE business_id=? AND balance>0 ORDER BY created_at DESC",new String[]{String.valueOf(activeBusinessId)});
         LinearLayout list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);list.setPadding(dp(16),dp(8),dp(16),dp(8));
         while(c.moveToNext()){
             long id=c.getLong(0);String type=c.getString(1),name=c.getString(2),desc=c.getString(3);double original=c.getDouble(4),balance=c.getDouble(5);
@@ -357,7 +357,7 @@ public class MainActivity extends Activity {
                 if(a.signum()<=0||a.scale()>2||a.doubleValue()>balance+0.000001)throw new Exception();
                 SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();
                 try{
-                    ContentValues pay=new ContentValues();pay.put("debt_id",id);pay.put("amount",a.doubleValue());pay.put("note",note.getText().toString().trim());
+                    ContentValues pay=new ContentValues();pay.put("business_id",activeBusinessId);pay.put("debt_id",id);pay.put("amount",a.doubleValue());pay.put("note",note.getText().toString().trim());
                     if(db.insert("debt_payments",null,pay)<0)throw new Exception();
                     ContentValues update=new ContentValues();update.put("balance",Math.max(0,balance-a.doubleValue()));
                     if(db.update("debts",update,"id=?",new String[]{String.valueOf(id)})!=1)throw new Exception();
@@ -377,10 +377,10 @@ public class MainActivity extends Activity {
     }
     private void renderReport(int period) {
         String where;
-        if(period==0) where="date(created_at)=date('now','localtime')";
-        else if(period==1) where="datetime(created_at)>=datetime('now','localtime','-6 days')";
-        else if(period==2) where="strftime('%Y-%m',created_at)=strftime('%Y-%m','now','localtime')";
-        else where="1=1";
+        if(period==0) where="business_id="+activeBusinessId+" AND date(created_at)=date('now','localtime')";
+        else if(period==1) where="business_id="+activeBusinessId+" AND datetime(created_at)>=datetime('now','localtime','-6 days')";
+        else if(period==2) where="business_id="+activeBusinessId+" AND strftime('%Y-%m',created_at)=strftime('%Y-%m','now','localtime')";
+        else where="business_id="+activeBusinessId;
         SQLiteDatabase db=helper.getReadableDatabase();
         double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales WHERE "+where);
         double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE "+where);
@@ -534,9 +534,9 @@ public class MainActivity extends Activity {
     }
     private void writePdf(android.net.Uri uri)throws Exception {
         SQLiteDatabase db=helper.getReadableDatabase();
-        double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales");
-        double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales");
-        double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses");
+        double sales=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM sales WHERE business_id="+activeBusinessId);
+        double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE business_id="+activeBusinessId);
+        double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses WHERE business_id="+activeBusinessId);
         double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PELANGGAN'");
         double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
         android.graphics.pdf.PdfDocument pdf=new android.graphics.pdf.PdfDocument();
