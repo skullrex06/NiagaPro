@@ -16,6 +16,8 @@ import android.content.Context;
 import android.widget.*;
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class MainActivity extends Activity {
     private BusinessDb helper;
@@ -66,11 +68,11 @@ public class MainActivity extends Activity {
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
         TextView plan = text("FREE",10,Color.WHITE,true); plan.setPadding(dp(12),dp(7),dp(12),dp(7)); plan.setBackground(shape(0x334F8BFF,30)); brand.addView(plan);
         header.addView(brand);
-        dateLabel=text("Ringkasan perniagaan",13,0xFFD5DDF0,false); dateLabel.setPadding(0,dp(22),0,0); header.addView(dateLabel);
+        dateLabel=text(new SimpleDateFormat("EEEE, d MMMM yyyy",new Locale("ms","MY")).format(new Date()),13,0xFFD5DDF0,false); dateLabel.setPadding(0,dp(22),0,0); header.addView(dateLabel);
         TextView welcome=text("Urus bisnes dengan lebih mudah.",20,Color.WHITE,true); welcome.setPadding(0,dp(4),0,0); header.addView(welcome);
         root.addView(header);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true);
-        content=new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18),dp(18),dp(18),dp(26));
+        content=new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18),dp(18),dp(18),dp(64)); content.setClipToPadding(false);
         scroll.addView(content); root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         setContentView(root);
     }
@@ -105,6 +107,8 @@ public class MainActivity extends Activity {
         content.addView(metrics);
         salesValue=metricIn(metrics,"JUALAN",blue);
         expenseValue=metricIn(metrics,"BELANJA",0xFFE28A36);
+        metrics.getChildAt(0).setOnClickListener(v->showHistory());
+        metrics.getChildAt(1).setOnClickListener(v->showHistory());
         LinearLayout profit=card(); profit.setBackground(gradient(0xFF315FEA,0xFF684CE6,18));
         TextView pt=text("UNTUNG BERSIH HARI INI",11,0xFFE3E9FF,true); profit.addView(pt);
         profitValue=text("RM 0.00",25,Color.WHITE,true); profitValue.setPadding(0,dp(8),0,0); profit.addView(profitValue);
@@ -113,7 +117,7 @@ public class MainActivity extends Activity {
         action("+","Rekod jualan","Produk atau perkhidmatan",blue,()->addRecord(true));
         action("−","Rekod perbelanjaan","Catat kos operasi perniagaan",0xFFE28A36,()->addRecord(false));
         section("Pengurusan","Modul perniagaan.");
-        action("▦","Produk & inventori","Senarai produk dan baki stok",blue,()->showProducts());
+        action("▦","Produk & inventori","Tambah, edit, padam dan kemas kini stok",blue,()->showProducts());
         action("↔","Sejarah transaksi","Semak rekod jualan dan belanja",0xFF7958D8,()->showHistory());
         action("▤","Laporan ringkas","Ringkasan jualan dan perbelanjaan",0xFF269A83,()->showReport());
         TextView foot=text("NiagaPro • Data disimpan dalam peranti ini",11,muted,false); foot.setGravity(Gravity.CENTER); foot.setPadding(0,dp(18),0,dp(8)); content.addView(foot);
@@ -162,12 +166,48 @@ public class MainActivity extends Activity {
         c.close(); if(out.length()==0)out.append("Belum ada transaksi direkodkan.");
         new AlertDialog.Builder(this).setTitle("Sejarah transaksi").setMessage(out.toString()).setPositiveButton("Tutup",null).show();
     }
+    private EditText input(String hint, int type) {
+        EditText e=new EditText(this); e.setSingleLine(true); e.setHint(hint); e.setInputType(type); return e;
+    }
     private void showProducts() {
-        Cursor c=helper.getReadableDatabase().rawQuery("SELECT name,price,stock FROM products ORDER BY name",null);
-        StringBuilder b=new StringBuilder();
-        while(c.moveToNext()) b.append(c.getString(0)).append("\nHarga: ").append(money.format(c.getDouble(1))).append(" • Stok: ").append(c.getInt(2)).append("\n\n");
-        c.close(); if(b.length()==0)b.append("Belum ada produk. Pengurusan produk penuh akan ditambah dalam fasa seterusnya.");
-        new AlertDialog.Builder(this).setTitle("Produk & inventori").setMessage(b.toString()).setPositiveButton("Tutup",null).show();
+        Cursor c=helper.getReadableDatabase().rawQuery("SELECT id,name,price,cost,stock FROM products ORDER BY name",null);
+        LinearLayout list=new LinearLayout(this); list.setOrientation(LinearLayout.VERTICAL); list.setPadding(dp(18),dp(8),dp(18),dp(8));
+        while(c.moveToNext()) {
+            final long id=c.getLong(0); final String name=c.getString(1);
+            final double price=c.getDouble(2), cost=c.getDouble(3); final int stock=c.getInt(4);
+            LinearLayout row=new LinearLayout(this); row.setOrientation(LinearLayout.VERTICAL); row.setPadding(dp(12),dp(10),dp(12),dp(10)); row.setBackground(shape(0xFFF3F5FA,12));
+            row.addView(text(name,14,ink,true));
+            row.addView(text("Harga "+money.format(price)+"  •  Kos "+money.format(cost)+"  •  Stok "+stock,11,muted,false));
+            row.setOnClickListener(v->productForm(id,name,price,cost,stock));
+            row.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle("Padam produk?").setMessage("Produk "+name+" akan dipadam.").setNegativeButton("Batal",null).setPositiveButton("Padam",(d,w)->{helper.getWritableDatabase().delete("products","id=?",new String[]{String.valueOf(id)});showProducts();}).show();return true;});
+            LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2); rp.bottomMargin=dp(7); list.addView(row,rp);
+        }
+        c.close();
+        if(list.getChildCount()==0) list.addView(text("Belum ada produk. Tekan + untuk tambah produk pertama.",13,muted,false));
+        ScrollView sc=new ScrollView(this); sc.addView(list);
+        new AlertDialog.Builder(this).setTitle("Produk & inventori").setView(sc).setPositiveButton("+ Tambah produk",(d,w)->productForm(-1,"",0,0,0)).setNegativeButton("Tutup",null).show();
+    }
+    private void productForm(long id,String oldName,double oldPrice,double oldCost,int oldStock) {
+        LinearLayout box=new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(dp(20),dp(5),dp(20),0);
+        EditText name=input("Nama produk", android.text.InputType.TYPE_CLASS_TEXT);
+        EditText price=input("Harga jual (RM)",8194), cost=input("Kos seunit (RM)",8194), stock=input("Kuantiti stok",2);
+        name.setText(oldName); if(id!=-1){price.setText(String.valueOf(oldPrice));cost.setText(String.valueOf(oldCost));stock.setText(String.valueOf(oldStock));}
+        box.addView(name);box.addView(price);box.addView(cost);box.addView(stock);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle(id==-1?"Tambah produk":"Kemaskini produk").setView(box).setNegativeButton("Batal",null).setPositiveButton("Simpan",null).create();
+        dlg.setOnShowListener(x->dlg.getButton(-1).setOnClickListener(v->{
+            try {
+                String n=name.getText().toString().trim(); if(n.isEmpty())throw new Exception();
+                java.math.BigDecimal p=new java.math.BigDecimal(price.getText().toString().trim().replace(",",".")), k=new java.math.BigDecimal(cost.getText().toString().trim().replace(",","."));
+                int q=Integer.parseInt(stock.getText().toString().trim());
+                if(p.signum()<0||k.signum()<0||p.scale()>2||k.scale()>2||q<0)throw new Exception();
+                ContentValues cv=new ContentValues();cv.put("name",n);cv.put("price",p.doubleValue());cv.put("cost",k.doubleValue());cv.put("stock",q);
+                SQLiteDatabase writable=helper.getWritableDatabase();
+                long result=id==-1?writable.insert("products",null,cv):writable.update("products",cv,"id=?",new String[]{String.valueOf(id)});
+                if(result<0)throw new Exception();
+                dlg.dismiss();Toast.makeText(this,"Produk berjaya disimpan.",Toast.LENGTH_SHORT).show();showProducts();
+            }catch(Exception e){Toast.makeText(this,"Semak nama, harga, kos dan kuantiti.",Toast.LENGTH_LONG).show();}
+        }));
+        dlg.show();
     }
     private void showReport() {
         SQLiteDatabase db=helper.getReadableDatabase(); double s=sumToday(db,"sales"), e=sumToday(db,"expenses");
