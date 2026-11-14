@@ -519,9 +519,9 @@ public class MainActivity extends Activity {
         java.io.OutputStreamWriter w=new java.io.OutputStreamWriter(out,java.nio.charset.Charset.forName("UTF-8"));
         w.write("\uFEFFJENIS,ID,TARIKH,JUMLAH,KOS,KAEDAH/KATEGORI,CATATAN/NAMA,BAKI\r\n");
         SQLiteDatabase db=helper.getReadableDatabase();
-        exportRows(w,db,"SELECT id,created_at,amount,cost_amount,method,note,'' FROM sales ORDER BY id","JUALAN");
-        exportRows(w,db,"SELECT id,created_at,amount,0,category,note,'' FROM expenses ORDER BY id","BELANJA");
-        exportRows(w,db,"SELECT id,created_at,original_amount,0,party_type,party_name,balance FROM debts ORDER BY id","HUTANG");
+        exportRows(w,db,"SELECT id,created_at,amount,cost_amount,method,note,'' FROM sales WHERE business_id="+activeBusinessId+" ORDER BY id","JUALAN");
+        exportRows(w,db,"SELECT id,created_at,amount,0,category,note,'' FROM expenses WHERE business_id="+activeBusinessId+" ORDER BY id","BELANJA");
+        exportRows(w,db,"SELECT id,created_at,original_amount,0,party_type,party_name,balance FROM debts WHERE business_id="+activeBusinessId+" ORDER BY id","HUTANG");
         w.flush();w.close();
     }
     private void exportRows(java.io.Writer w,SQLiteDatabase db,String sql,String type)throws Exception {
@@ -538,7 +538,7 @@ public class MainActivity extends Activity {
         double cost=querySum(db,"SELECT COALESCE(SUM(cost_amount),0) FROM sales WHERE business_id="+activeBusinessId);
         double expenses=querySum(db,"SELECT COALESCE(SUM(amount),0) FROM expenses WHERE business_id="+activeBusinessId);
         double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PELANGGAN'");
-        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE party_type='PEMBEKAL'");
+        double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PEMBEKAL'");
         android.graphics.pdf.PdfDocument pdf=new android.graphics.pdf.PdfDocument();
         android.graphics.pdf.PdfDocument.PageInfo info=new android.graphics.pdf.PdfDocument.PageInfo.Builder(595,842,1).create();
         android.graphics.pdf.PdfDocument.Page page=pdf.startPage(info);android.graphics.Canvas canvas=page.getCanvas();
