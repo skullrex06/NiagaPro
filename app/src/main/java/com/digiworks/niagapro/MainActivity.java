@@ -305,9 +305,9 @@ public class MainActivity extends Activity {
         double receivable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PELANGGAN'");
         double payable=querySum(db,"SELECT COALESCE(SUM(balance),0) FROM debts WHERE business_id="+activeBusinessId+" AND party_type='PEMBEKAL'");
         String summary="Pelanggan berhutang kepada anda: "+money.format(receivable)+"\nAnda berhutang kepada pembekal: "+money.format(payable);
+        String[] options={"Lihat hutang tertunggak","Rekod hutang baharu","Sejarah bayaran & hutang selesai"};
         new AlertDialog.Builder(this).setTitle("Hutang & bayaran").setMessage(summary)
-            .setPositiveButton("Lihat rekod",(d,w)->listDebts())
-            .setNeutralButton("+ Rekod hutang",(d,w)->addDebt())
+            .setItems(options,(d,w)->{if(w==0)listDebts();else if(w==1)addDebt();else showDebtHistory();})
             .setNegativeButton("Tutup",null).show();
     }
     private void addDebt() {
@@ -344,6 +344,30 @@ public class MainActivity extends Activity {
         ScrollView sc=new ScrollView(this);sc.addView(list);
         new AlertDialog.Builder(this).setTitle("Rekod tertunggak • Tekan untuk bayar").setView(sc)
             .setPositiveButton("+ Hutang baharu",(d,w)->addDebt()).setNegativeButton("Tutup",null).show();
+    }
+    private void showDebtHistory() {
+        SQLiteDatabase db=helper.getReadableDatabase();
+        Cursor c=db.rawQuery("SELECT d.party_type,d.party_name,d.description,d.original_amount,d.balance,p.amount,p.note,p.created_at FROM debt_payments p INNER JOIN debts d ON d.id=p.debt_id WHERE p.business_id=? AND d.business_id=? ORDER BY p.created_at DESC,p.id DESC LIMIT 200",
+            new String[]{String.valueOf(activeBusinessId),String.valueOf(activeBusinessId)});
+        StringBuilder out=new StringBuilder();
+        while(c.moveToNext()) {
+            out.append(c.getString(1)).append(" • ").append(c.getString(0)).append("\n")
+              .append("Bayaran: ").append(money.format(c.getDouble(5))).append(" | Baki semasa: ").append(money.format(c.getDouble(4))).append("\n");
+            if(c.getString(2)!=null&&!c.getString(2).isEmpty())out.append("Butiran: ").append(c.getString(2)).append("\n");
+            if(c.getString(6)!=null&&!c.getString(6).isEmpty())out.append("Catatan: ").append(c.getString(6)).append("\n");
+            out.append(c.getString(7)).append("\n\n");
+        }
+        c.close();
+        Cursor closed=db.rawQuery("SELECT party_type,party_name,original_amount,created_at FROM debts WHERE business_id=? AND balance<=0 ORDER BY created_at DESC",
+            new String[]{String.valueOf(activeBusinessId)});
+        if(closed.getCount()>0) {
+            out.append("HUTANG SELESAI\n");
+            while(closed.moveToNext())out.append(closed.getString(1)).append(" • ").append(closed.getString(0)).append(" • ").append(money.format(closed.getDouble(2))).append("\n").append(closed.getString(3)).append("\n\n");
+        }
+        closed.close();
+        if(out.length()==0)out.append("Belum ada rekod bayaran atau hutang selesai.");
+        ScrollView sc=new ScrollView(this);TextView body=text(out.toString(),13,ink,false);body.setPadding(dp(18),dp(12),dp(18),dp(12));sc.addView(body);
+        new AlertDialog.Builder(this).setTitle("Sejarah bayaran (maksimum 200 rekod)").setView(sc).setPositiveButton("Tutup",null).show();
     }
     private void recordDebtPayment(long id,String name,double balance) {
         EditText amount=input("Jumlah bayaran (maksimum "+money.format(balance)+")",8194);
