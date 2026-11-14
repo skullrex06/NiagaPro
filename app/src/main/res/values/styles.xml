@@ -1,0 +1,16 @@
+<resources>
+    <style name="NiagaProTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#6655F5</item>
+        <item name="android:statusBarColor">#081030</item>
+        <item name="android:navigationBarColor">#0A1237</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:alertDialogTheme">@style/NiagaProDialog</item>
+    </style>
+    <style name="NiagaProDialog" parent="@android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/niaga_dialog_bg</item>
+        <item name="android:colorAccent">#315FEA</item>
+        <item name="android:textColorPrimary">#101A43</item>
+        <item name="android:textColorSecondary">#52618A</item>
+    </style>
+</resources>
